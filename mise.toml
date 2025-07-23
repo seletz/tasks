@@ -1,0 +1,12 @@
+env_file = '.env'
+
+[settings]
+experimental = true
+legacy_version_file = false  # Don't auto-detect from .python-version files
+
+[tools]
+uv = "latest"
+
+[env]
+_.python.venv = ".venv"
+

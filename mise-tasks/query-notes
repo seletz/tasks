@@ -1,0 +1,130 @@
+#!/bin/bash
+
+umask 077
+
+export CLICOLOR_FORCE=1
+export COLORTERM=truecolor
+
+INITIAL_QUERY=""
+
+export PATH="/usr/local/bin:$PATH"
+
+# Enable colors if stdout is a tty
+if [ -t 1 ]
+then
+    col_info=$(tput setaf 4)
+    col_warn=$(tput setaf 3)
+    col_error=$(tput setaf 1)
+    col_rst=$(tput sgr0)
+fi
+
+error() {
+    echo "${col_error}Error:${col_rst} $@" >&2
+}
+
+abort() {
+    error "$@"
+    exit 1
+}
+
+if [ "$NOTES_DIR" = '' ]
+then
+    NOTES_DIR="/Users/seletz/develop/notes"
+fi
+
+if [ "$EDITOR" = '' ]
+then
+    EDITOR='emacsclient -c -n -a emacs'
+fi
+
+if [ ! -d "$NOTES_DIR" ]
+then
+    error "'$NOTES_DIR' does not exist or isn't a directory"
+    error "Create the directory or set NOTES_DIR in the environment"
+
+    pwd
+    sleep 30
+    exit 1
+fi
+
+
+while getopts 'hq:' opt
+do
+  case $opt in
+      q)
+          shift
+          shift
+          INITIAL_QUERY="$OPTARG"
+          ;;
+      *)
+        echo "Usage:"
+        echo "   note <note-name>    Open or create <note-name> in \$EDITOR"
+        echo "   note                Use FZF to find a note and open it in \$EDITOR"
+        echo "   note -q <query>     use query as initial query."
+        echo ""
+        echo "Environment variables used for configuration:"
+        echo "  NOTE_DIR:  $NOTES_DIR"
+        echo "  EDITOR:    $EDITOR"
+        exit 1
+        ;;
+  esac
+done
+
+function open_note() {
+    local key="$1"
+    local file="$2"
+
+    if [ -z "$file" ]; then
+        file=$key
+        key=""
+    fi
+
+    exec open -n "obsidian://open?vault=notes&file=$file"
+}
+
+function find_note() {
+    local query="$1"
+    local fzf_opts="--ansi --phony --layout=reverse"
+    local preview="bat  --style=numbers --color=always {}"
+    local rg_command="rg -l --color=always --smart-case "
+    local rg_opts="-l --column --line-number --no-heading --color=always --smart-case"
+
+    cd "$NOTES_DIR"
+#   FZF_DEFAULT_COMMAND="$rg_command '$query'" \
+#       fzf $fzf_opts \
+#       --bind "change:reload:$rg_command {q} || true" \
+#       --query "$query" \
+#       --preview "$preview"
+
+    FZF_DEFAULT_COMMAND="fd -t f -e md" \
+	    fzf $fzf_opts \
+	    --bind "change:reload:fd -t f -e md {q} || true" \
+	    --query "$query" \
+	    --preview "$preview"
+}
+
+function main() {
+    local file="$1"
+
+    if [ -n "$file" ]
+    then
+        # We got a note name as argument, create or open it
+        open_note "$1"
+    else
+
+        choice=$(find_note $INITIAL_QUERY)
+
+        if [ -z "$choice" ]
+        then
+            exit 1
+        fi
+
+        open_note "$choice"
+    fi
+
+}
+
+main $1
+
+
+sleep 30

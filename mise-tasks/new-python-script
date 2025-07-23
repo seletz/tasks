@@ -1,0 +1,41 @@
+#!/bin/bash
+#MISE description="Create a new Python script with UV inline metadata and shebang"
+#MISE usage="flag '--name' help='Script name to create'"
+
+set -euo pipefail
+
+# Get script name from argument or usage flag
+SCRIPT_NAME="${usage_name:-${1:-}}"
+if [ -z "$SCRIPT_NAME" ]; then
+    echo "Usage: $(basename $0) <script-name> or mise run new-python-script --name <script-name>" >&2
+    echo "Example: mise $(basename $0) my-tool" >&2
+    echo "Example: mise run new-python-script --name my-tool" >&2
+    exit 1
+fi
+
+# Use script name as provided (no automatic .py extension)
+
+# Assume mise-tasks directory exists
+TASKS_DIR="mise-tasks"
+if [ ! -d "$TASKS_DIR" ]; then
+    echo "Error: Directory '$TASKS_DIR' does not exist!" >&2
+    exit 1
+fi
+
+SCRIPT_PATH="$TASKS_DIR/$SCRIPT_NAME"
+
+# Check if script already exists
+if [ -f "$SCRIPT_PATH" ]; then
+    echo "Error: Script '$SCRIPT_PATH' already exists!" >&2
+    exit 1
+fi
+
+# Create the script with uv init --script
+uv init --script "$SCRIPT_PATH" >/dev/null 2>&1
+
+# Add shebang as the first line
+awk 'BEGIN{print "#!/usr/bin/env -S uv run --script"} {print}' "$SCRIPT_PATH" > "$SCRIPT_PATH.tmp" && mv "$SCRIPT_PATH.tmp" "$SCRIPT_PATH"
+
+
+# Make script executable
+chmod +x "$SCRIPT_PATH"
