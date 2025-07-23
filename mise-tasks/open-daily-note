@@ -1,0 +1,3 @@
+#!/bin/bash
+#MISE description="Open daily note in obsidian"
+open 'obsidian://adv-uri?vault=notes&daily=true'
