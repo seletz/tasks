@@ -1,0 +1,15 @@
+#!/bin/bash
+#MISE description="Open lazydocker"
+
+set -eou pipefail
+set -x
+
+#USAGE arg "<directory>" help="The root directory"
+
+if [ -z "$usage_directory" ]; then
+	$usage_directory = "$HOME"
+fi
+
+
+with-direnv "$usage_directory" $(which lazydocker)
+
