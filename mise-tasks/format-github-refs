@@ -1,0 +1,127 @@
+#!/usr/bin/env -S uv run --script
+# /// script
+# requires-python = ">=3.13"
+# dependencies = []
+# ///
+
+import argparse
+import json
+import re
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+
+def run_gh_command(cmd: list[str]) -> dict:
+    """Run gh command and return JSON result"""
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout)
+    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
+        print(f"Error running gh command: {e}", file=sys.stderr)
+        return {}
+
+
+def detect_repo_from_content(content: str) -> str:
+    """Detect repository from existing GitHub links in content"""
+    # Look for existing GitHub links to infer repo
+    link_pattern = r'\[(?:Issue|PR) #\d+\]\(https://github\.com/([^/]+/[^/]+)/'
+    match = re.search(link_pattern, content)
+    if match:
+        return match.group(1)
+    
+    # Default fallback
+    return "digitalgedacht/careassist-odoo"
+
+
+def format_github_refs(content: str, repo: str = None, dry_run: bool = False) -> str:
+    """Format unformatted GitHub references in content"""
+    if repo is None:
+        repo = detect_repo_from_content(content)
+    
+    # Pattern to find unformatted references (not already in markdown links)
+    # Use negative lookbehind to avoid matching inside existing links
+    pattern = r'(?<!\[)(?:Issue|PR) #(\d+)(?!\]\()'
+    
+    def replace_ref(match):
+        ref_type = "Issue" if match.group(0).startswith("Issue") else "PR"
+        number = match.group(1)
+        
+        if dry_run:
+            print(f"Would format: {match.group(0)} -> [{ref_type} #{number}](https://github.com/{repo}/{'issues' if ref_type == 'Issue' else 'pull'}/{number}) -- <title>")
+            return match.group(0)
+        
+        # Get title from GitHub
+        endpoint = "issues" if ref_type == "Issue" else "pull"
+        gh_data = run_gh_command([
+            "gh", ref_type.lower(), "view", number, 
+            "--repo", repo, "--json", "number,title,url"
+        ])
+        
+        if gh_data and "title" in gh_data:
+            title = gh_data["title"]
+            url = gh_data["url"]
+            return f"[{ref_type} #{number}]({url}) -- {title}"
+        else:
+            print(f"Warning: Could not fetch data for {ref_type} #{number}", file=sys.stderr)
+            return match.group(0)
+    
+    return re.sub(pattern, replace_ref, content)
+
+
+def get_default_daily_note() -> Path:
+    """Get path to today's daily note"""
+    # Assuming notes are in /Users/seletz/develop/notes/daily/YYYY-MM-DD.md
+    today = datetime.now().strftime("%Y-%m-%d")
+    notes_dir = Path("/Users/seletz/develop/notes")
+    return notes_dir / "daily" / f"{today}.md"
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Format unformatted GitHub references in markdown files")
+    parser.add_argument("file", nargs="?", help="Markdown file to process (default: today's daily note)")
+    parser.add_argument("--repo", help="GitHub repository (org/repo), auto-detected if not specified")
+    parser.add_argument("--dry-run", action="store_true", help="Show what would be changed without modifying files")
+    
+    args = parser.parse_args()
+    
+    # Use today's daily note if no file specified
+    if args.file:
+        file_path = Path(args.file)
+    else:
+        file_path = get_default_daily_note()
+        print(f"No file specified, using today's daily note: {file_path}")
+    
+    if not file_path.exists():
+        print(f"Error: File {file_path} does not exist", file=sys.stderr)
+        sys.exit(1)
+    
+    # Read file content
+    try:
+        content = file_path.read_text(encoding="utf-8")
+    except Exception as e:
+        print(f"Error reading file: {e}", file=sys.stderr)
+        sys.exit(1)
+    
+    # Format references
+    updated_content = format_github_refs(content, args.repo, args.dry_run)
+    
+    if args.dry_run:
+        print(f"Dry run completed for {file_path}")
+        return
+    
+    # Write back if content changed
+    if updated_content != content:
+        try:
+            file_path.write_text(updated_content, encoding="utf-8")
+            print(f"Updated {file_path}")
+        except Exception as e:
+            print(f"Error writing file: {e}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        print(f"No changes needed for {file_path}")
+
+
+if __name__ == "__main__":
+    main()
