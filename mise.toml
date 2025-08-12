@@ -10,3 +10,14 @@ uv = "latest"
 [env]
 _.python.venv = ".venv"
 
+
+[tasks.ccusage]
+run = [
+	"bunx ccusage blocks --live"
+]
+
+[tasks.format-github-refs]
+description = "Format unformatted GitHub references in markdown files"
+run = [
+	"./mise-tasks/format-github-refs"
+]
