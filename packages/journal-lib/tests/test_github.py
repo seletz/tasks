@@ -84,15 +84,27 @@ class TestGitHubCommands:
 class TestRepositoryDetection:
     """Test repository detection from content."""
 
-    def test_detect_repo_from_content_with_issue_link(self):
-        """Test repository detection from issue link."""
+    def test_detect_repo_from_content_with_issue_link_old_format(self):
+        """Test repository detection from issue link in old format."""
         content = "Some text [Issue #123](https://github.com/owner/repo/issues/123) more text"
         result = github.detect_repo_from_content(content)
         assert result == "owner/repo"
 
-    def test_detect_repo_from_content_with_pr_link(self):
-        """Test repository detection from PR link."""
+    def test_detect_repo_from_content_with_issue_link_new_format(self):
+        """Test repository detection from issue link in new format."""
+        content = "Some text [owner/repo#123](https://github.com/owner/repo/issues/123) more text"
+        result = github.detect_repo_from_content(content)
+        assert result == "owner/repo"
+
+    def test_detect_repo_from_content_with_pr_link_old_format(self):
+        """Test repository detection from PR link in old format."""
         content = "Some text [PR #456](https://github.com/owner/repo/pull/456) more text"
+        result = github.detect_repo_from_content(content)
+        assert result == "owner/repo"
+
+    def test_detect_repo_from_content_with_pr_link_new_format(self):
+        """Test repository detection from PR link in new format."""
+        content = "Some text [owner/repo#456](https://github.com/owner/repo/pull/456) more text"
         result = github.detect_repo_from_content(content)
         assert result == "owner/repo"
 
@@ -241,11 +253,72 @@ class TestGitHubDataFetching:
         assert len(result) == 2
 
 
+class TestSecurityFunctions:
+    """Test security-related functions."""
+
+    def test_escape_markdown_basic(self):
+        """Test basic markdown escaping."""
+        text = "This has *bold* and [link](url) and `code`"
+        result = github.escape_markdown(text)
+        expected = "This has \\\\*bold\\\\* and \\\\[link\\\\]\\\\(url\\\\) and \\\\`code\\\\`"
+        assert result == expected
+
+
+    def test_escape_markdown_non_string(self):
+        """Test escaping with non-string input."""
+        result = github.escape_markdown(123)
+        assert result == "123"
+
+    def test_escape_markdown_empty(self):
+        """Test escaping empty string."""
+        result = github.escape_markdown("")
+        assert result == ""
+
+
+class TestRepositoryExtraction:
+    """Test repository extraction from URLs."""
+
+    def test_extract_repo_from_url_issue(self):
+        """Test extracting repository from issue URL."""
+        url = "https://github.com/owner/repo/issues/123"
+        result = github.extract_repo_from_url(url)
+        assert result == "owner/repo"
+
+    def test_extract_repo_from_url_pr(self):
+        """Test extracting repository from PR URL."""
+        url = "https://github.com/digitalgedacht/careassist-odoo/pull/456"
+        result = github.extract_repo_from_url(url)
+        assert result == "digitalgedacht/careassist-odoo"
+
+    def test_extract_repo_from_url_invalid(self):
+        """Test extracting repository from invalid URL."""
+        url = "https://not-github.com/something"
+        result = github.extract_repo_from_url(url)
+        assert result == "unknown/repo"
+
+    def test_extract_repo_from_url_non_string(self):
+        """Test extracting repository from non-string input."""
+        result = github.extract_repo_from_url(123)
+        assert result == "unknown/repo"
+
+    def test_extract_repo_from_url_malformed(self):
+        """Test extracting repository from malformed URL."""
+        url = "not-a-url-at-all"
+        result = github.extract_repo_from_url(url)
+        assert result == "unknown/repo"
+
+    def test_extract_repo_from_url_with_www(self):
+        """Test extracting repository from GitHub URL with www prefix."""
+        url = "https://www.github.com/owner/repo/issues/123"
+        result = github.extract_repo_from_url(url)
+        assert result == "owner/repo"
+
+
 class TestFormatting:
     """Test GitHub reference formatting functions."""
 
     def test_format_issue_ref_open(self):
-        """Test formatting open issue reference."""
+        """Test formatting open issue reference with repository prefix."""
         issue = {
             "number": 123,
             "title": "Test Issue",
@@ -253,11 +326,23 @@ class TestFormatting:
             "state": "open"
         }
         result = github.format_issue_ref(issue)
-        expected = "[Issue #123](https://github.com/owner/repo/issues/123) -- Test Issue"
+        expected = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- Test Issue"
+        assert result == expected
+
+    def test_format_issue_ref_with_markdown_characters(self):
+        """Test formatting issue reference with markdown characters in title."""
+        issue = {
+            "number": 123,
+            "title": "Fix *bold* issue with [links]",
+            "url": "https://github.com/owner/repo/issues/123",
+            "state": "open"
+        }
+        result = github.format_issue_ref(issue)
+        expected = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- Fix \\\\*bold\\\\* issue with \\\\[links\\\\]"
         assert result == expected
 
     def test_format_issue_ref_closed(self):
-        """Test formatting closed issue reference."""
+        """Test formatting closed issue reference with repository prefix."""
         issue = {
             "number": 123,
             "title": "Test Issue",
@@ -265,11 +350,11 @@ class TestFormatting:
             "state": "closed"
         }
         result = github.format_issue_ref(issue)
-        expected = "[Issue #123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue"
+        expected = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue"
         assert result == expected
 
     def test_format_pr_ref_open(self):
-        """Test formatting open PR reference."""
+        """Test formatting open PR reference with repository prefix."""
         pr = {
             "number": 456,
             "title": "Test PR",
@@ -277,11 +362,23 @@ class TestFormatting:
             "createdAt": "2023-12-01T10:00:00Z"
         }
         result = github.format_pr_ref(pr)
-        expected = "[PR #456](https://github.com/owner/repo/pull/456) -- Test PR (opened 2023-12-01 10:00)"
+        expected = "[owner/repo#456](https://github.com/owner/repo/pull/456) -- Test PR (opened 2023-12-01 10:00)"
+        assert result == expected
+
+    def test_format_pr_ref_with_markdown_characters(self):
+        """Test formatting PR reference with markdown characters in title."""
+        pr = {
+            "number": 456,
+            "title": "Add `code` support for *features*",
+            "url": "https://github.com/owner/repo/pull/456",
+            "createdAt": "2023-12-01T10:00:00Z"
+        }
+        result = github.format_pr_ref(pr)
+        expected = "[owner/repo#456](https://github.com/owner/repo/pull/456) -- Add \\\\`code\\\\` support for \\\\*features\\\\* (opened 2023-12-01 10:00)"
         assert result == expected
 
     def test_format_pr_ref_merged(self):
-        """Test formatting merged PR reference."""
+        """Test formatting merged PR reference with repository prefix."""
         pr = {
             "number": 456,
             "title": "Test PR", 
@@ -290,7 +387,7 @@ class TestFormatting:
             "mergedAt": "2023-12-01T15:00:00Z"
         }
         result = github.format_pr_ref(pr)
-        expected = "[PR #456](https://github.com/owner/repo/pull/456) -- Test PR (opened 2023-12-01 10:00, merged 2023-12-01 15:00)"
+        expected = "[owner/repo#456](https://github.com/owner/repo/pull/456) -- Test PR (opened 2023-12-01 10:00, merged 2023-12-01 15:00)"
         assert result == expected
 
 
@@ -298,8 +395,8 @@ class TestContentFormatting:
     """Test content formatting and GitHub reference updating."""
 
     @patch('journal_lib.github.run_gh_command_single')
-    def test_add_checkmarks_to_closed_issues(self, mock_run_gh_single):
-        """Test adding checkmarks to closed issues."""
+    def test_add_checkmarks_to_closed_issues_old_format(self, mock_run_gh_single):
+        """Test adding checkmarks to closed issues in old format."""
         content = "[Issue #123](https://github.com/owner/repo/issues/123) -- Test Issue"
         mock_run_gh_single.return_value = {
             "number": 123,
@@ -308,7 +405,21 @@ class TestContentFormatting:
         }
         
         result = github.add_checkmarks_to_closed_issues(content, "owner/repo")
-        expected = "[Issue #123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue"
+        expected = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue"
+        assert result == expected
+
+    @patch('journal_lib.github.run_gh_command_single')
+    def test_add_checkmarks_to_closed_issues_new_format(self, mock_run_gh_single):
+        """Test adding checkmarks to closed issues in new format."""
+        content = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- Test Issue"
+        mock_run_gh_single.return_value = {
+            "number": 123,
+            "title": "Test Issue", 
+            "state": "closed"
+        }
+        
+        result = github.add_checkmarks_to_closed_issues(content, "owner/repo")
+        expected = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue"
         assert result == expected
 
     @patch('journal_lib.github.run_gh_command_single')
@@ -325,7 +436,7 @@ class TestContentFormatting:
 
     @patch('journal_lib.github.run_gh_command_single')
     def test_format_unformatted_github_refs(self, mock_run_gh_single):
-        """Test formatting unformatted GitHub references."""
+        """Test formatting unformatted GitHub references with repository prefix."""
         content = "Fixed Issue #123 and PR #456"
         mock_run_gh_single.side_effect = [
             {
@@ -343,7 +454,7 @@ class TestContentFormatting:
         ]
         
         result = github.format_unformatted_github_refs(content, "owner/repo")
-        expected = "Fixed [Issue #123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue and [PR #456](https://github.com/owner/repo/pull/456) -- Test PR"
+        expected = "Fixed [owner/repo#123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue and [owner/repo#456](https://github.com/owner/repo/pull/456) -- Test PR"
         assert result == expected
 
     @patch('journal_lib.github.run_gh_command_single')
@@ -390,6 +501,95 @@ class TestContentFormatting:
         assert result == "final formatted content"
 
 
+class TestDeduplication:
+    """Test GitHub item deduplication and sorting functionality."""
+
+    def test_deduplicate_github_items_removes_duplicates(self):
+        """Test that duplicate items are removed based on URL."""
+        items = [
+            {"number": 123, "title": "First", "url": "https://github.com/repo1/test/issues/123"},
+            {"number": 456, "title": "Second", "url": "https://github.com/repo2/test/issues/456"},
+            {"number": 123, "title": "Duplicate", "url": "https://github.com/repo1/test/issues/123"},  # Duplicate
+        ]
+        
+        result = github.deduplicate_github_items(items)
+        
+        assert len(result) == 2
+        # Should keep the first occurrence
+        assert result[0]["title"] == "First"
+        assert result[1]["title"] == "Second"
+
+    def test_deduplicate_github_items_sorts_by_repo_and_number(self):
+        """Test that items are sorted by repository name and then by issue number."""
+        items = [
+            {"number": 456, "title": "Later number", "url": "https://github.com/zoo/test/issues/456"},
+            {"number": 123, "title": "Earlier number", "url": "https://github.com/zoo/test/issues/123"},
+            {"number": 999, "title": "Alpha repo", "url": "https://github.com/alpha/test/issues/999"},
+        ]
+        
+        result = github.deduplicate_github_items(items)
+        
+        # Should be sorted: alpha/test#999, zoo/test#123, zoo/test#456
+        assert len(result) == 3
+        assert github.extract_repo_from_url(result[0]["url"]) == "alpha/test"
+        assert result[0]["number"] == 999
+        assert github.extract_repo_from_url(result[1]["url"]) == "zoo/test"
+        assert result[1]["number"] == 123
+        assert github.extract_repo_from_url(result[2]["url"]) == "zoo/test"
+        assert result[2]["number"] == 456
+
+    def test_deduplicate_github_items_empty_list(self):
+        """Test that empty list is handled correctly."""
+        result = github.deduplicate_github_items([])
+        assert result == []
+
+    def test_deduplicate_github_items_items_without_url(self):
+        """Test that items without URL are filtered out."""
+        items = [
+            {"number": 123, "title": "Valid", "url": "https://github.com/repo1/test/issues/123"},
+            {"number": 456, "title": "No URL"},  # Missing URL
+            {"number": 789, "title": "Empty URL", "url": ""},  # Empty URL
+        ]
+        
+        result = github.deduplicate_github_items(items)
+        
+        assert len(result) == 1
+        assert result[0]["title"] == "Valid"
+
+    def test_deduplicate_github_items_behavior_with_multiple_runs(self):
+        """Test deduplication behavior when same data is processed multiple times (simulating multiple daily update runs)."""
+        # Simulate data that might come from multiple API calls
+        first_run_data = [
+            {"number": 123, "title": "Original Issue", "url": "https://github.com/owner/repo/issues/123", "state": "closed"},
+            {"number": 456, "title": "Another Issue", "url": "https://github.com/owner/repo/issues/456", "state": "open"},
+        ]
+        
+        # Second run might have slightly different data or duplicates
+        second_run_data = [
+            {"number": 123, "title": "Original Issue", "url": "https://github.com/owner/repo/issues/123", "state": "closed"},  # Exact duplicate
+            {"number": 456, "title": "Another Issue Updated", "url": "https://github.com/owner/repo/issues/456", "state": "open"},  # Same URL, different title
+            {"number": 789, "title": "New Issue", "url": "https://github.com/owner/repo/issues/789", "state": "open"},  # New issue
+        ]
+        
+        # Combine data as would happen when fetching multiple times
+        combined_data = first_run_data + second_run_data
+        
+        result = github.deduplicate_github_items(combined_data)
+        
+        # Should have 3 unique items (deduplicated by URL)
+        assert len(result) == 3
+        
+        # Should keep first occurrence of each URL
+        urls_in_result = [item["url"] for item in result]
+        assert "https://github.com/owner/repo/issues/123" in urls_in_result
+        assert "https://github.com/owner/repo/issues/456" in urls_in_result  
+        assert "https://github.com/owner/repo/issues/789" in urls_in_result
+        
+        # Should preserve original title for duplicate URL (first occurrence wins)
+        issue_456 = next(item for item in result if item["number"] == 456)
+        assert issue_456["title"] == "Another Issue"  # Original, not "Updated"
+
+
 class TestDailyReviewUpdate:
     """Test daily review section updating."""
 
@@ -417,7 +617,7 @@ Other content"""
         
         assert "## Daily Review" in result
         assert "**Heute erstellte Issues:**" in result
-        assert "[Issue #1](http://test.com) -- Test" in result
+        assert "[unknown/repo#1](http://test.com) -- Test" in result
         assert "NONE" in result  # For empty sections
         assert "## Other Section" in result
         assert "Old content here" not in result
@@ -457,12 +657,68 @@ Some existing content"""
         
         result = github.update_daily_review_section(content, github_data)
         
-        assert "[Issue #1](http://test.com/1) -- Created Issue" in result
-        assert "[PR #2](http://test.com/2) -- Created PR" in result
-        assert "[Issue #3](http://test.com/3) -- ✅ Closed Issue" in result
-        assert "[Issue #4](http://test.com/4) -- Worked Issue (open)" in result
-        assert "[PR #5](http://test.com/5) -- Merged PR" in result
+        assert "[unknown/repo#1](http://test.com/1) -- Created Issue" in result
+        assert "[unknown/repo#2](http://test.com/2) -- Created PR" in result
+        assert "[unknown/repo#3](http://test.com/3) -- ✅ Closed Issue" in result
+        assert "[unknown/repo#4](http://test.com/4) -- Worked Issue (open)" in result
+        assert "[unknown/repo#5](http://test.com/5) -- Merged PR" in result
         assert "NONE" not in result  # No sections should be empty
+
+    def test_update_daily_review_section_deduplicates_multiple_runs(self):
+        """Test that multiple runs of daily update don't create duplicate entries."""
+        content = "# Daily Notes"
+        
+        # Simulate duplicate data from multiple API calls (realistic scenario)
+        github_data = {
+            "issues_created": [
+                {"number": 123, "title": "Fix bug", "url": "https://github.com/owner/repo/issues/123", "state": "open"},
+                {"number": 123, "title": "Fix bug", "url": "https://github.com/owner/repo/issues/123", "state": "open"},  # Duplicate
+                {"number": 456, "title": "Add feature", "url": "https://github.com/other/repo/issues/456", "state": "open"},
+            ],
+            "prs_created": [],
+            "issues_closed": [],
+            "issues_worked_on": [],
+            "prs_merged": []
+        }
+        
+        result = github.update_daily_review_section(content, github_data)
+        
+        # Should only appear once each, properly sorted
+        assert result.count("[other/repo#456]") == 1
+        assert result.count("[owner/repo#123]") == 1
+        
+        # Should be sorted by repository name
+        other_repo_pos = result.find("[other/repo#456]")
+        owner_repo_pos = result.find("[owner/repo#123]")
+        assert other_repo_pos < owner_repo_pos  # "other" comes before "owner" alphabetically
+
+    def test_update_daily_review_section_sorts_by_repository(self):
+        """Test that GitHub items are sorted by repository and issue number for cleaner display."""
+        content = "# Daily Notes"
+        
+        # Unsorted input data from different repositories
+        github_data = {
+            "issues_created": [
+                {"number": 999, "title": "Zoo repo issue", "url": "https://github.com/zoo/repo/issues/999", "state": "open"},
+                {"number": 456, "title": "Alpha repo later", "url": "https://github.com/alpha/repo/issues/456", "state": "open"},
+                {"number": 123, "title": "Alpha repo earlier", "url": "https://github.com/alpha/repo/issues/123", "state": "open"},
+            ],
+            "prs_created": [],
+            "issues_closed": [], 
+            "issues_worked_on": [],
+            "prs_merged": []
+        }
+        
+        result = github.update_daily_review_section(content, github_data)
+        
+        # Find positions of each formatted issue in the result
+        alpha_123_pos = result.find("[alpha/repo#123]")
+        alpha_456_pos = result.find("[alpha/repo#456]")
+        zoo_999_pos = result.find("[zoo/repo#999]")
+        
+        # Should be sorted: alpha/repo#123, alpha/repo#456, zoo/repo#999
+        assert alpha_123_pos < alpha_456_pos < zoo_999_pos
+        assert alpha_123_pos != -1 and alpha_456_pos != -1 and zoo_999_pos != -1
 
 
 class TestConstants:
