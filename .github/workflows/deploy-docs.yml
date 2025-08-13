@@ -1,0 +1,72 @@
+name: Deploy Documentation
+
+on:
+  push:
+    branches:
+      - develop
+    paths:
+      - 'docs/**'
+      - 'mkdocs.yml'
+      - 'packages/**/src/**'
+      - 'packages/**/pyproject.toml'
+      - 'pyproject.toml'
+      - '.github/workflows/deploy-docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.4.0"
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dependencies
+        run: uv sync --group dev
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Validate and build documentation
+        run: |
+          uv run mkdocs build --clean --strict --verbose
+          echo "Documentation size: $(du -sh site | cut -f1)"
+          
+          # Fail if docs are too large (50MB limit)
+          SIZE=$(du -sb site | cut -f1)
+          if [ $SIZE -gt 52428800 ]; then
+            echo "Documentation too large: $SIZE bytes (max 50MB)"
+            exit 1
+          fi
+          
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./site
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

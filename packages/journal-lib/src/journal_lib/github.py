@@ -25,10 +25,9 @@ def run_gh_command(cmd: list[str]) -> list[dict[str, Any]]:
     Run GitHub CLI command and return JSON result as a list.
 
     :param cmd: Command arguments to pass to the gh CLI
-    :type cmd: List[str]
     :return: JSON response parsed as list of dictionaries, empty list on error
-    :rtype: List[Dict[str, Any]]
-    :raises: Prints error to stderr and returns empty list on subprocess or JSON errors
+    :raises subprocess.CalledProcessError: On command execution failure
+    :raises json.JSONDecodeError: On JSON parsing failure
     """
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -43,10 +42,9 @@ def run_gh_command_single(cmd: list[str]) -> dict[str, Any]:
     Run GitHub CLI command and return JSON result as a single dictionary.
 
     :param cmd: Command arguments to pass to the gh CLI
-    :type cmd: List[str]
     :return: JSON response parsed as dictionary, empty dict on error
-    :rtype: Dict[str, Any]
-    :raises: Prints error to stderr and returns empty dict on subprocess or JSON errors
+    :raises subprocess.CalledProcessError: On command execution failure
+    :raises json.JSONDecodeError: On JSON parsing failure
     """
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
@@ -64,9 +62,7 @@ def detect_repo_from_content(content: str) -> str:
     is being referenced. Falls back to DEFAULT_REPO if no links found.
 
     :param content: Markdown content to search for GitHub links
-    :type content: str
     :return: Repository name in format "owner/repo"
-    :rtype: str
     """
     # Look for existing GitHub links to infer repo
     link_pattern = r"\[(?:Issue|PR) #\d+\]\(https://github\.com/([^/]+/[^/]+)/"
@@ -86,9 +82,7 @@ def get_date_range(period: str) -> str:
     Currently only "today" is fully implemented, other periods default to today.
 
     :param period: Date period specification ("today", "this-week", "YYYY-MM-DD", etc.)
-    :type period: str
     :return: Date string in YYYY-MM-DD format
-    :rtype: str
     """
     today = datetime.now()
 
@@ -119,9 +113,7 @@ def get_default_daily_note(date: str | None = None) -> Path:
     Get file system path to daily note file for specified date.
 
     :param date: Date in YYYY-MM-DD format, defaults to today if None
-    :type date: Optional[str]
     :return: Path object pointing to daily note file
-    :rtype: Path
     """
     if date is None:
         date = datetime.now().strftime("%Y-%m-%d")
@@ -136,9 +128,7 @@ def fetch_issues_created(period: str = "today") -> list[dict[str, Any]]:
     repositories for issues authored by the user.
 
     :param period: Time period to search ("today", "this-week", or YYYY-MM-DD)
-    :type period: str
     :return: List of issue dictionaries with number, title, url, and state
-    :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
     orgs = ["digitalgedacht", "nexiles"]
@@ -167,9 +157,7 @@ def fetch_prs_created(period: str = "today") -> list[dict[str, Any]]:
     the author or assignee.
 
     :param period: Time period to search ("today", "this-week", or YYYY-MM-DD)
-    :type period: str
     :return: List of PR dictionaries with number, title, url, state, and timestamps
-    :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
     orgs = ["digitalgedacht", "nexiles"]
@@ -200,9 +188,7 @@ def fetch_issues_worked_on(period: str = "today") -> list[dict[str, Any]]:
     commented, was assigned, mentioned, or otherwise participated.
 
     :param period: Time period to search ("today", "this-week", or YYYY-MM-DD)
-    :type period: str
     :return: List of issue dictionaries with number, title, url, and state
-    :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
     orgs = ["digitalgedacht", "nexiles"]
@@ -225,9 +211,7 @@ def fetch_issues_closed(period: str = "today") -> list[dict[str, Any]]:
     those authored by or assigned to the authenticated user.
 
     :param period: Time period to search ("today", "this-week", or YYYY-MM-DD)
-    :type period: str
     :return: List of issue dictionaries with number, title, url, state, assignees, and author
-    :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
     orgs = ["digitalgedacht", "nexiles"]
@@ -271,9 +255,7 @@ def fetch_prs_merged(period: str = "today") -> list[dict[str, Any]]:
     either the author or assignee.
 
     :param period: Time period to search ("today", "this-week", or YYYY-MM-DD)
-    :type period: str
     :return: List of PR dictionaries with number, title, url, state, and timestamps
-    :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
     orgs = ["digitalgedacht", "nexiles"]
@@ -304,9 +286,7 @@ def format_issue_ref(issue: dict[str, Any]) -> str:
     issues, or "[Issue #123](url) -- Title" for open issues.
 
     :param issue: Issue dictionary containing number, title, url, and state
-    :type issue: Dict[str, Any]
     :return: Formatted markdown link string
-    :rtype: str
     """
     title = issue["title"]
     if issue.get("state", "").lower() == "closed":
@@ -322,9 +302,7 @@ def format_pr_ref(pr: dict[str, Any]) -> str:
     and optionally when it was merged.
 
     :param pr: PR dictionary containing number, title, url, createdAt, and optionally mergedAt
-    :type pr: Dict[str, Any]
     :return: Formatted markdown link string with timestamps
-    :rtype: str
     """
     created_at = datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
     created_str = created_at.strftime("%Y-%m-%d %H:%M")
@@ -349,13 +327,9 @@ def add_checkmarks_to_closed_issues(content: str, repo: str, dry_run: bool = Fal
     GitHub to determine their current state, adding ✅ prefix to closed issues.
 
     :param content: Markdown content containing GitHub issue links
-    :type content: str
     :param repo: Repository name in "owner/repo" format
-    :type repo: str
     :param dry_run: If True, only print what would be changed without modifying content
-    :type dry_run: bool
     :return: Updated markdown content with checkmarks added to closed issues
-    :rtype: str
     """
     # Pattern to find existing GitHub issue links without checkmarks
     issue_pattern = (
@@ -392,13 +366,9 @@ def format_unformatted_github_refs(content: str, repo: str, dry_run: bool = Fals
     them to proper markdown links with titles fetched from GitHub API.
 
     :param content: Markdown content containing unformatted GitHub references
-    :type content: str
     :param repo: Repository name in "owner/repo" format
-    :type repo: str
     :param dry_run: If True, only print what would be changed without modifying content
-    :type dry_run: bool
     :return: Updated markdown content with formatted GitHub links
-    :rtype: str
     """
     # Pattern to find unformatted references (not already in markdown links)
     # Use negative lookbehind to avoid matching inside existing links
@@ -453,13 +423,9 @@ def format_all_github_refs(content: str, repo: str | None = None, dry_run: bool 
     2. Converts unformatted references to proper markdown links
 
     :param content: Markdown content to process
-    :type content: str
     :param repo: Repository name in "owner/repo" format, auto-detected if None
-    :type repo: Optional[str]
     :param dry_run: If True, only print what would be changed without modifying content
-    :type dry_run: bool
     :return: Updated markdown content with all GitHub references properly formatted
-    :rtype: str
     """
     if repo is None:
         repo = detect_repo_from_content(content)
@@ -482,11 +448,8 @@ def update_daily_review_section(content: str, github_data: dict[str, list]) -> s
     replaced; otherwise it's appended to the content.
 
     :param content: Existing markdown content
-    :type content: str
     :param github_data: Dictionary containing lists of GitHub items by category
-    :type github_data: Dict[str, List]
     :return: Updated markdown content with Daily Review section
-    :rtype: str
     """
 
     # Format the new Daily Review content
