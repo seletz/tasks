@@ -21,7 +21,7 @@ Example usage:
         print(f"Error: {result.error}")
 """
 
-from typing import Generic, TypeVar, Union
+from typing import Generic, TypeVar
 
 T = TypeVar("T")
 

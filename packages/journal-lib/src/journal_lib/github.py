@@ -32,11 +32,11 @@ def run_gh_command(cmd: list[str], single: bool = False) -> list[dict[str, Any]]
     # Security: Validate command structure
     if not cmd or cmd[0] != "gh":
         raise ValueError("Only GitHub CLI commands are allowed")
-    
+
     allowed_commands = ["issue", "pr", "repo", "auth"]
     if len(cmd) < 2 or cmd[1] not in allowed_commands:
         raise ValueError(f"Unsupported gh command: {cmd[1] if len(cmd) > 1 else 'none'}")
-    
+
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
         data = json.loads(result.stdout) if result.stdout.strip() else ([] if not single else {})
