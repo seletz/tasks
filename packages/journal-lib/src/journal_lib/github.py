@@ -64,10 +64,12 @@ def detect_repo_from_content(content: str) -> str:
     :param content: Markdown content to search for GitHub links
     :return: Repository name in format "owner/repo"
     """
-    # Look for existing GitHub links to infer repo
-    link_pattern = r"\[(?:Issue|PR) #\d+\]\(https://github\.com/([^/]+/[^/]+)/"
+    # Look for existing GitHub links to infer repo (handle both old and new formats)
+    # Use specific patterns to prevent ReDoS vulnerabilities
+    link_pattern = r"\[(?:(?:Issue|PR) #|(?:[a-zA-Z0-9_-]{1,100}/[a-zA-Z0-9_-]{1,100}#))\d{1,10}\]\(https://github\.com/([a-zA-Z0-9_-]{1,100}/[a-zA-Z0-9_-]{1,100})/"
     match = re.search(link_pattern, content)
     if match:
+        # Return the repo from the URL (group 1) as it's the only capture group
         return match.group(1)
 
     # Default fallback
@@ -278,36 +280,90 @@ def fetch_prs_merged(period: str = "today") -> list[dict[str, Any]]:
     return all_prs
 
 
+def escape_markdown(text: str) -> str:
+    """
+    Escape special markdown characters to prevent injection attacks.
+
+    :param text: Text that may contain markdown special characters
+    :type text: str
+    :return: Text with markdown special characters escaped
+    :rtype: str
+    """
+    if not isinstance(text, str):
+        return str(text)
+
+    # Escape markdown special chars
+    special_chars = ["*", "_", "`", "[", "]", "(", ")", "#", "+", "-", "!", "|", "{", "}", "\\"]
+    for char in special_chars:
+        text = text.replace(char, f"\\{char}")
+    return text
+
+
+def extract_repo_from_url(url: str) -> str:
+    """
+    Extract repository name from GitHub URL with validation.
+
+    :param url: GitHub URL (issue or PR)
+    :type url: str
+    :return: Repository name in "owner/repo" format
+    :rtype: str
+    """
+    import re
+    from urllib.parse import urlparse
+
+    if not isinstance(url, str):
+        return "unknown/repo"
+
+    # Validate it's actually a GitHub URL
+    try:
+        parsed = urlparse(url)
+        if parsed.hostname not in ["github.com", "www.github.com"]:
+            return "unknown/repo"
+    except Exception:
+        return "unknown/repo"
+
+    # Use more specific, non-backtracking pattern to prevent ReDoS
+    match = re.search(r"github\.com/([a-zA-Z0-9_-]{1,100}/[a-zA-Z0-9_-]{1,100})", url)
+    return match.group(1) if match else "unknown/repo"
+
+
 def format_issue_ref(issue: dict[str, Any]) -> str:
     """
-    Format GitHub issue as markdown link with visual indicator for closed state.
+    Format GitHub issue as markdown link with repository prefix and visual indicator for closed state.
 
-    Creates a markdown link in format: "[Issue #123](url) -- ✅ Title" for closed
-    issues, or "[Issue #123](url) -- Title" for open issues.
+    Creates a markdown link in format: "[owner/repo#123](url) -- ✅ Title" for closed
+    issues, or "[owner/repo#123](url) -- Title" for open issues.
 
     :param issue: Issue dictionary containing number, title, url, and state
-    :return: Formatted markdown link string
+    :type issue: dict[str, Any]
+    :return: Formatted markdown link string with repository prefix
+    :rtype: str
     """
-    title = issue["title"]
+    repo = extract_repo_from_url(issue["url"])
+    title = escape_markdown(issue.get("title", ""))
     if issue.get("state", "").lower() == "closed":
         title = f"✅ {title}"
-    return f"[Issue #{issue['number']}]({issue['url']}) -- {title}"
+    return f"[{repo}#{issue['number']}]({issue['url']}) -- {title}"
 
 
 def format_pr_ref(pr: dict[str, Any]) -> str:
     """
-    Format GitHub pull request as markdown link with creation and merge timestamps.
+    Format GitHub pull request as markdown link with repository prefix, creation and merge timestamps.
 
-    Creates a markdown link with timestamps showing when the PR was opened
+    Creates a markdown link with repository prefix and timestamps showing when the PR was opened
     and optionally when it was merged.
 
     :param pr: PR dictionary containing number, title, url, createdAt, and optionally mergedAt
-    :return: Formatted markdown link string with timestamps
+    :type pr: dict[str, Any]
+    :return: Formatted markdown link string with repository prefix and timestamps
+    :rtype: str
     """
+    repo = extract_repo_from_url(pr["url"])
     created_at = datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
     created_str = created_at.strftime("%Y-%m-%d %H:%M")
 
-    result = f"[PR #{pr['number']}]({pr['url']}) -- {pr['title']}"
+    title = escape_markdown(pr.get("title", ""))
+    result = f"[{repo}#{pr['number']}]({pr['url']}) -- {title}"
 
     if pr.get("mergedAt"):
         merged_at = datetime.fromisoformat(pr["mergedAt"].replace("Z", "+00:00"))
@@ -332,9 +388,9 @@ def add_checkmarks_to_closed_issues(content: str, repo: str, dry_run: bool = Fal
     :return: Updated markdown content with checkmarks added to closed issues
     """
     # Pattern to find existing GitHub issue links without checkmarks
-    issue_pattern = (
-        r"\[Issue #(\d+)\]\((https://github\.com/[^/]+/[^/]+/issues/\d+)\) -- (?!✅)([^\n]+)"
-    )
+    # Updated to handle both old format (Issue #123) and new format (owner/repo#123)
+    # Use specific patterns to prevent ReDoS vulnerabilities
+    issue_pattern = r"\[(?:Issue #|(?:[a-zA-Z0-9_-]{1,100}/[a-zA-Z0-9_-]{1,100}#))(\d{1,10})\]\((https://github\.com/[a-zA-Z0-9_-]{1,100}/[a-zA-Z0-9_-]{1,100}/issues/\d{1,10})\) -- (?!✅)(.{1,500})"
 
     def update_issue_ref(match):
         number = match.group(1)
@@ -342,7 +398,9 @@ def add_checkmarks_to_closed_issues(content: str, repo: str, dry_run: bool = Fal
         title = match.group(3)
 
         if dry_run:
-            print(f"Would check if Issue #{number} is closed and add ✅ if needed")
+            # Extract repo name from URL for display
+            repo_name = extract_repo_from_url(url)
+            print(f"Would check if {repo_name}#{number} is closed and add ✅ if needed")
             return match.group(0)
 
         # Get issue state from GitHub
@@ -351,9 +409,15 @@ def add_checkmarks_to_closed_issues(content: str, repo: str, dry_run: bool = Fal
         )
 
         if gh_data and gh_data.get("state", "").lower() == "closed":
-            return f"[Issue #{number}]({url}) -- ✅ {title}"
+            # Use new format with repo prefix
+            repo_name = extract_repo_from_url(url)
+            return f"[{repo_name}#{number}]({url}) -- ✅ {title}"
+        elif gh_data:
+            # Issue is open, use new format without checkmark
+            repo_name = extract_repo_from_url(url)
+            return f"[{repo_name}#{number}]({url}) -- {title}"
         else:
-            return match.group(0)  # No change if not closed or error
+            return match.group(0)  # No change if error
 
     return re.sub(issue_pattern, update_issue_ref, content)
 
@@ -372,7 +436,8 @@ def format_unformatted_github_refs(content: str, repo: str, dry_run: bool = Fals
     """
     # Pattern to find unformatted references (not already in markdown links)
     # Use negative lookbehind to avoid matching inside existing links
-    pattern = r"(?<!\[)(?:Issue|PR) #(\d+)(?!\]\()"
+    # Limit number length to prevent ReDoS
+    pattern = r"(?<!\[)(?:Issue|PR) #(\d{1,10})(?!\]\()(?![^\[]*\]\()"
 
     def replace_ref(match):
         ref_type = "Issue" if match.group(0).startswith("Issue") else "PR"
@@ -399,14 +464,15 @@ def format_unformatted_github_refs(content: str, repo: str, dry_run: bool = Fals
         )
 
         if gh_data and "title" in gh_data:
-            title = gh_data["title"]
+            title = escape_markdown(gh_data["title"])
             url = gh_data["url"]
+            repo_name = extract_repo_from_url(url)
 
             # Add checkmark if it's a closed issue
             if ref_type == "Issue" and gh_data.get("state", "").lower() == "closed":
                 title = f"✅ {title}"
 
-            return f"[{ref_type} #{number}]({url}) -- {title}"
+            return f"[{repo_name}#{number}]({url}) -- {title}"
         else:
             print(f"Warning: Could not fetch data for {ref_type} #{number}", file=sys.stderr)
             return match.group(0)
