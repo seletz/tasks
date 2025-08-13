@@ -11,14 +11,9 @@ theme:
   features:
     - navigation.tabs
     - navigation.sections
-    - navigation.expand
-    - navigation.path
-    - navigation.top
     - search.highlight
-    - search.share
     - toc.follow
     - content.code.copy
-    - content.code.annotate
   palette:
     # Palette toggle for light mode
     - scheme: default
@@ -43,6 +38,8 @@ nav:
   - Python Library:
     - library/index.md
     - API Reference: reference/
+  - Coding Agent:
+    - coding-agent/index.md
 
 markdown_extensions:
   - admonition

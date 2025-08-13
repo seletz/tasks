@@ -639,13 +639,13 @@ requires-dist = [{ name = "journal-lib", editable = "packages/journal-lib" }]
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "ipython", specifier = ">=9.4.0" },
-    { name = "mkdocs", specifier = ">=1.6.0" },
-    { name = "mkdocs-gen-files", specifier = ">=0.5.0" },
-    { name = "mkdocs-literate-nav", specifier = ">=0.6.0" },
-    { name = "mkdocs-material", specifier = ">=9.5.0" },
-    { name = "mkdocs-section-index", specifier = ">=0.3.9" },
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.26.0" },
+    { name = "ipython", specifier = ">=9.4.0,<10.0.0" },
+    { name = "mkdocs", specifier = ">=1.6.0,<2.0.0" },
+    { name = "mkdocs-gen-files", specifier = ">=0.5.0,<1.0.0" },
+    { name = "mkdocs-literate-nav", specifier = ">=0.6.0,<1.0.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.0,<10.0.0" },
+    { name = "mkdocs-section-index", specifier = ">=0.3.9,<1.0.0" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.26.0,<1.0.0" },
 ]
 
 [[package]]

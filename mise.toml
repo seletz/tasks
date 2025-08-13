@@ -27,3 +27,10 @@ description = "Serve mkdocs documentation locally"
 run = [
 	"uv run mkdocs serve"
 ]
+
+[tasks.test-docs]
+description = "Test documentation build and validate"
+run = [
+	"uv run mkdocs build --clean --strict",
+	"echo 'Documentation build successful!'"
+]
