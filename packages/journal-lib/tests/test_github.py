@@ -1,5 +1,6 @@
 """Tests for journal_lib.github module."""
 
+import getpass
 import json
 import subprocess
 from datetime import datetime
@@ -67,7 +68,7 @@ class TestGitHubCommands:
         mock_result.returncode = 0
         
         with patch('subprocess.run', return_value=mock_result):
-            result = github.run_gh_command_single(['gh', 'issue', 'view', '1'])
+            result = github.run_gh_command(['gh', 'issue', 'view', '1'], single=True)
             assert result == {"number": 1, "title": "Test"}
 
     def test_run_gh_command_single_empty_output(self):
@@ -77,7 +78,7 @@ class TestGitHubCommands:
         mock_result.returncode = 0
         
         with patch('subprocess.run', return_value=mock_result):
-            result = github.run_gh_command_single(['gh', 'issue', 'view', '1'])
+            result = github.run_gh_command(['gh', 'issue', 'view', '1'], single=True)
             assert result == {}
 
 
@@ -110,15 +111,17 @@ class TestRepositoryDetection:
 
     def test_detect_repo_from_content_no_links(self):
         """Test repository detection with no GitHub links."""
+        from journal_lib.config import config
         content = "Some text with no GitHub links"
         result = github.detect_repo_from_content(content)
-        assert result == github.DEFAULT_REPO
+        assert result == config.default_repo
 
     def test_detect_repo_from_content_empty(self):
         """Test repository detection with empty content."""
+        from journal_lib.config import config
         content = ""
         result = github.detect_repo_from_content(content)
-        assert result == github.DEFAULT_REPO
+        assert result == config.default_repo
 
 
 class TestDateRangeHandling:
@@ -153,16 +156,18 @@ class TestDailyNoteHandling:
 
     def test_get_default_daily_note_with_date(self):
         """Test daily note path with specific date."""
+        from journal_lib.config import config
         result = github.get_default_daily_note("2023-12-15")
-        expected = Path("/Users/seletz/develop/notes/daily/2023-12-15.md")
+        expected = config.notes_dir / "daily" / "2023-12-15.md"
         assert result == expected
 
     def test_get_default_daily_note_without_date(self):
         """Test daily note path without date (uses today)."""
+        from journal_lib.config import config
         result = github.get_default_daily_note()
         # Should return path with today's date
         today = datetime.now().strftime("%Y-%m-%d")
-        expected = Path(f"/Users/seletz/develop/notes/daily/{today}.md")
+        expected = config.notes_dir / "daily" / f"{today}.md"
         assert result == expected
 
 
@@ -178,9 +183,9 @@ class TestGitHubDataFetching:
         
         result = github.fetch_issues_created("today")
         
-        # Should be called 3 times (2 orgs + 1 personal)
-        assert mock_run_gh.call_count == 3
-        assert len(result) == 3  # Each call returns 1 item
+        # Should be called 2 times (2 orgs, personal repo only if user != @me)
+        assert mock_run_gh.call_count == 2
+        assert len(result) == 2  # Each call returns 1 item
 
     @patch('journal_lib.github.run_gh_command')
     @patch('journal_lib.github.get_date_range')
@@ -216,14 +221,14 @@ class TestGitHubDataFetching:
             {
                 "number": 1, 
                 "title": "Test Issue",
-                "author": {"login": "seletz"},
+                "author": {"login": getpass.getuser()},
                 "assignees": []
             },
             {
                 "number": 2,
                 "title": "Other Issue", 
                 "author": {"login": "other"},
-                "assignees": [{"login": "seletz"}]
+                "assignees": [{"login": getpass.getuser()}]
             },
             {
                 "number": 3,
@@ -394,7 +399,7 @@ class TestFormatting:
 class TestContentFormatting:
     """Test content formatting and GitHub reference updating."""
 
-    @patch('journal_lib.github.run_gh_command_single')
+    @patch('journal_lib.github.run_gh_command')
     def test_add_checkmarks_to_closed_issues_old_format(self, mock_run_gh_single):
         """Test adding checkmarks to closed issues in old format."""
         content = "[Issue #123](https://github.com/owner/repo/issues/123) -- Test Issue"
@@ -408,7 +413,7 @@ class TestContentFormatting:
         expected = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue"
         assert result == expected
 
-    @patch('journal_lib.github.run_gh_command_single')
+    @patch('journal_lib.github.run_gh_command')
     def test_add_checkmarks_to_closed_issues_new_format(self, mock_run_gh_single):
         """Test adding checkmarks to closed issues in new format."""
         content = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- Test Issue"
@@ -422,7 +427,7 @@ class TestContentFormatting:
         expected = "[owner/repo#123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue"
         assert result == expected
 
-    @patch('journal_lib.github.run_gh_command_single')
+    @patch('journal_lib.github.run_gh_command')
     def test_add_checkmarks_to_closed_issues_dry_run(self, mock_run_gh_single):
         """Test dry run mode for adding checkmarks."""
         content = "[Issue #123](https://github.com/owner/repo/issues/123) -- Test Issue"
@@ -434,7 +439,7 @@ class TestContentFormatting:
             mock_print.assert_called_once()
             mock_run_gh_single.assert_not_called()
 
-    @patch('journal_lib.github.run_gh_command_single')
+    @patch('journal_lib.github.run_gh_command')
     def test_format_unformatted_github_refs(self, mock_run_gh_single):
         """Test formatting unformatted GitHub references with repository prefix."""
         content = "Fixed Issue #123 and PR #456"
@@ -457,7 +462,7 @@ class TestContentFormatting:
         expected = "Fixed [owner/repo#123](https://github.com/owner/repo/issues/123) -- ✅ Test Issue and [owner/repo#456](https://github.com/owner/repo/pull/456) -- Test PR"
         assert result == expected
 
-    @patch('journal_lib.github.run_gh_command_single')
+    @patch('journal_lib.github.run_gh_command')
     def test_format_unformatted_github_refs_dry_run(self, mock_run_gh_single):
         """Test dry run mode for formatting unformatted references."""
         content = "Fixed Issue #123"
@@ -725,12 +730,14 @@ class TestConstants:
     """Test module constants and configuration."""
 
     def test_notes_dir_constant(self):
-        """Test NOTES_DIR constant is properly set."""
-        assert github.NOTES_DIR == Path("/Users/seletz/develop/notes")
+        """Test notes directory configuration is accessible."""
+        from journal_lib.config import config
+        assert isinstance(config.notes_dir, Path)
 
     def test_default_repo_constant(self):
-        """Test DEFAULT_REPO constant is properly set."""
-        assert github.DEFAULT_REPO == "digitalgedacht/careassist-odoo"
+        """Test default repository configuration is accessible."""
+        from journal_lib.config import config
+        assert isinstance(config.default_repo, str)
 
     def test_section_headers_constants(self):
         """Test all section header constants are properly set."""
