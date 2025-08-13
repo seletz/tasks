@@ -1,6 +1,23 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "tasks"
 version = "0.1.0"
 description = "Personal tasks"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "tasks",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/journal_lib"]
+
+[tool.uv.sources]
+tasks = { path = ".", editable = true }
+
+[dependency-groups]
+dev = [
+    "ipython>=9.4.0",
+]
