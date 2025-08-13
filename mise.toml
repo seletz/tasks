@@ -22,6 +22,22 @@ run = [
 	"./mise-tasks/format-github-refs"
 ]
 
+# Documentation tasks
+[tasks.serve-docs]
+description = "Serve mkdocs documentation locally"
+run = [
+	"uv run mkdocs serve"
+]
+
+[tasks.test-docs]
+description = "Test documentation build and validate (matches GitHub workflow)"
+run = [
+	"uv run mkdocs build --clean --strict",
+	"echo \"Documentation size: $(du -sh site | cut -f1)\"",
+	"echo '✅ Documentation build successful!'"
+]
+
+# Development quality tasks
 [tasks.lint]
 description = "Run linting checks on the codebase"
 run = [
@@ -34,6 +50,13 @@ description = "Format code with ruff"
 run = [
 	"uv run ruff format packages/journal-lib/src/",
 	"echo '✅ Code formatted with ruff'"
+]
+
+[tasks.format-check]
+description = "Check code formatting without making changes"
+run = [
+	"uv run ruff format --check packages/journal-lib/src/",
+	"echo '✅ Code formatting check passed'"
 ]
 
 [tasks.typecheck]
@@ -55,11 +78,4 @@ description = "Run all quality checks (lint, format check, typecheck, test)"
 depends = ["lint", "format-check", "typecheck", "test"]
 run = [
 	"echo '🎉 All quality checks passed!'"
-]
-
-[tasks.format-check]
-description = "Check code formatting without making changes"
-run = [
-	"uv run ruff format --check packages/journal-lib/src/",
-	"echo '✅ Code formatting check passed'"
 ]
