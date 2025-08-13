@@ -124,22 +124,22 @@ class JournalConfig:
         :return: Path object pointing to daily note file
         :rtype: Path
         """
-        from datetime import datetime
         import re
+        from datetime import datetime
 
         if date is None:
             date = datetime.now().strftime("%Y-%m-%d")
-        
+
         # Security: Validate date format to prevent path traversal
         if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
             raise ValueError("Invalid date format. Expected YYYY-MM-DD")
-        
+
         # Additional validation of date value
         try:
             datetime.strptime(date, "%Y-%m-%d")
-        except ValueError:
-            raise ValueError("Invalid date value")
-        
+        except ValueError as e:
+            raise ValueError("Invalid date value") from e
+
         return self.notes_dir / "daily" / f"{date}.md"
 
 
