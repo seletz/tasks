@@ -1,6 +1,19 @@
 [project]
 name = "tasks"
 version = "0.1.0"
-description = "Personal tasks"
+description = "Personal tasks repository"
 requires-python = ">=3.13"
-dependencies = []
+dependencies = [
+    "journal-lib",
+]
+
+[tool.uv.workspace]
+members = ["packages/*"]
+
+[tool.uv.sources]
+journal-lib = { workspace = true }
+
+[dependency-groups]
+dev = [
+    "ipython>=9.4.0",
+]
