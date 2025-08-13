@@ -50,47 +50,60 @@ This will:
 
 ## Scripts with Shared Libraries
 
-For more complex scripts that share functionality, this project uses a local Python package structure:
+For more complex scripts that share functionality, this project uses a **uv workspace** structure with a dedicated library package:
 
 ```
 /tasks/
-├── src/
-│   └── journal_lib/          # Shared libraries
-│       ├── __init__.py
-│       └── github.py         # GitHub integration functions
+├── packages/
+│   └── journal-lib/          # Shared library package
+│       ├── pyproject.toml    # Library configuration
+│       └── src/
+│           └── journal_lib/  # Python modules
+│               ├── __init__.py
+│               └── github.py # GitHub integration functions
 ├── mise-tasks/               # Executable scripts
 │   ├── format-github-refs    # Uses journal_lib.github
 │   └── update-daily-work     # Uses journal_lib.github
-└── pyproject.toml           # Package configuration
+└── pyproject.toml           # Workspace configuration
 ```
 
 ### Setup Process
 
-1. **Package Structure**: Libraries go in `src/journal_lib/` to avoid polluting the special `mise-tasks/` directory
-2. **pyproject.toml Configuration**: Uses uv's native project format with hatchling build backend:
+1. **Workspace Structure**: Uses uv's workspace feature to manage multiple packages
+2. **Root pyproject.toml**: Configures workspace and dependencies:
+   ```toml
+   [project]
+   name = "tasks"
+   dependencies = ["journal-lib"]
+   
+   [tool.uv.workspace]
+   members = ["packages/*"]
+   
+   [tool.uv.sources]
+   journal-lib = { workspace = true }
+   ```
+3. **Library pyproject.toml**: Clean, standalone package configuration:
    ```toml
    [build-system]
    requires = ["hatchling"]
    build-backend = "hatchling.build"
    
    [project]
-   dependencies = ["tasks"]
-   
-   [tool.hatch.build.targets.wheel]
-   packages = ["src/journal_lib"]
-   
-   [tool.uv.sources]
-   tasks = { path = ".", editable = true }
+   name = "journal-lib"
+   version = "0.1.0"
+   description = "Personal journal automation library with GitHub integration"
    ```
-3. **Automatic Setup**: Run `uv sync` to automatically install the local package in editable mode
-4. **Script Shebang**: Scripts using libraries use `#!/usr/bin/env python` instead of the isolated `uv run --script`
-5. **Execution**: Run via `mise run script-name` to use the proper uv-managed environment
+4. **Automatic Setup**: Run `uv sync` to automatically install workspace packages in editable mode
+5. **Script Shebang**: Scripts using libraries use `#!/usr/bin/env python` instead of the isolated `uv run --script`
+6. **Execution**: Run via `mise run script-name` to use the proper uv-managed environment
 
 ### Benefits
 
+- **Clean Separation**: Library code is properly isolated in its own package
+- **No Circular Dependencies**: Clear dependency flow from scripts to library
+- **Workspace Management**: uv handles multiple packages automatically
 - **Eliminate Code Duplication**: Shared functions live in one place
 - **Maintainability**: Bug fixes and improvements benefit all scripts
-- **Clean Architecture**: Separation between library code and CLI interfaces
 - **Testing**: Libraries can be tested independently
 
 ### Example Library Usage
