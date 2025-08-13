@@ -505,26 +505,62 @@ def format_all_github_refs(content: str, repo: str | None = None, dry_run: bool 
     return content
 
 
+def deduplicate_github_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """
+    Remove duplicate GitHub items based on URL and sort by repository and number.
+
+    :param items: List of GitHub items (issues or PRs)
+    :type items: List[Dict[str, Any]]
+    :return: Deduplicated and sorted list of items
+    :rtype: List[Dict[str, Any]]
+    """
+    # Deduplicate by URL
+    seen_urls = set()
+    unique_items = []
+    for item in items:
+        url = item.get("url", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            unique_items.append(item)
+
+    # Sort by repository name and then by number
+    def sort_key(item):
+        repo = extract_repo_from_url(item.get("url", ""))
+        number = item.get("number", 0)
+        return (repo, number)
+
+    return sorted(unique_items, key=sort_key)
+
+
 def update_daily_review_section(content: str, github_data: dict[str, list]) -> str:
     """
     Replace or append Daily Review section in markdown content with GitHub activity data.
 
     Creates a comprehensive daily review section showing issues created, PRs created,
-    issues closed, issues worked on, and PRs merged. If the section exists, it's
-    replaced; otherwise it's appended to the content.
+    issues closed, issues worked on, and PRs merged. Deduplicates items by URL and
+    sorts them by repository for cleaner display.
 
     :param content: Existing markdown content
     :param github_data: Dictionary containing lists of GitHub items by category
     :return: Updated markdown content with Daily Review section
     """
 
+    # Deduplicate and sort all GitHub data
+    deduplicated_data = {
+        "issues_created": deduplicate_github_items(github_data.get("issues_created", [])),
+        "prs_created": deduplicate_github_items(github_data.get("prs_created", [])),
+        "issues_closed": deduplicate_github_items(github_data.get("issues_closed", [])),
+        "issues_worked_on": deduplicate_github_items(github_data.get("issues_worked_on", [])),
+        "prs_merged": deduplicate_github_items(github_data.get("prs_merged", [])),
+    }
+
     # Format the new Daily Review content
     review_content = "## Daily Review\n\n"
 
     # Issues created today
     review_content += f"{SECTION_ISSUES_CREATED}\n"
-    if github_data["issues_created"]:
-        for issue in github_data["issues_created"]:
+    if deduplicated_data["issues_created"]:
+        for issue in deduplicated_data["issues_created"]:
             review_content += f"- {format_issue_ref(issue)}\n"
     else:
         review_content += "NONE\n"
@@ -532,8 +568,8 @@ def update_daily_review_section(content: str, github_data: dict[str, list]) -> s
 
     # PRs created today
     review_content += f"{SECTION_PRS_CREATED}\n"
-    if github_data["prs_created"]:
-        for pr in github_data["prs_created"]:
+    if deduplicated_data["prs_created"]:
+        for pr in deduplicated_data["prs_created"]:
             review_content += f"- {format_pr_ref(pr)}\n"
     else:
         review_content += "NONE\n"
@@ -541,8 +577,8 @@ def update_daily_review_section(content: str, github_data: dict[str, list]) -> s
 
     # Issues closed today
     review_content += f"{SECTION_ISSUES_CLOSED}\n"
-    if github_data["issues_closed"]:
-        for issue in github_data["issues_closed"]:
+    if deduplicated_data["issues_closed"]:
+        for issue in deduplicated_data["issues_closed"]:
             review_content += f"- {format_issue_ref(issue)}\n"
     else:
         review_content += "NONE\n"
@@ -550,8 +586,8 @@ def update_daily_review_section(content: str, github_data: dict[str, list]) -> s
 
     # Issues worked on today
     review_content += f"{SECTION_ISSUES_WORKED}\n"
-    if github_data["issues_worked_on"]:
-        for issue in github_data["issues_worked_on"]:
+    if deduplicated_data["issues_worked_on"]:
+        for issue in deduplicated_data["issues_worked_on"]:
             review_content += f"- {format_issue_ref(issue)} ({issue['state']})\n"
     else:
         review_content += "NONE\n"
@@ -559,8 +595,8 @@ def update_daily_review_section(content: str, github_data: dict[str, list]) -> s
 
     # PRs merged today
     review_content += f"{SECTION_PRS_MERGED}\n"
-    if github_data["prs_merged"]:
-        for pr in github_data["prs_merged"]:
+    if deduplicated_data["prs_merged"]:
+        for pr in deduplicated_data["prs_merged"]:
             review_content += f"- {format_pr_ref(pr)}\n"
     else:
         review_content += "NONE\n"
