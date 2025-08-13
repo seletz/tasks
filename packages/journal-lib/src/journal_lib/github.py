@@ -8,9 +8,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-# Global configuration
-NOTES_DIR = Path("/Users/seletz/develop/notes")
-DEFAULT_REPO = "digitalgedacht/careassist-odoo"
+from .config import config
 
 # Section headers for daily review
 SECTION_ISSUES_CREATED = "**Heute erstellte Issues:**"
@@ -20,40 +18,38 @@ SECTION_ISSUES_WORKED = "**Heute bearbeitet:**"
 SECTION_PRS_MERGED = "**Heute gemergte PRs:**"
 
 
-def run_gh_command(cmd: list[str]) -> list[dict[str, Any]]:
+def run_gh_command(cmd: list[str], single: bool = False) -> list[dict[str, Any]] | dict[str, Any]:
     """
-    Run GitHub CLI command and return JSON result as a list.
+    Run GitHub CLI command and return JSON result.
 
     :param cmd: Command arguments to pass to the gh CLI
-    :type cmd: List[str]
-    :return: JSON response parsed as list of dictionaries, empty list on error
-    :rtype: List[Dict[str, Any]]
-    :raises: Prints error to stderr and returns empty list on subprocess or JSON errors
+    :type cmd: list[str]
+    :param single: If True, return single dict; if False, return list
+    :type single: bool
+    :return: JSON response parsed as list or dictionary, empty result on error
+    :rtype: list[dict[str, Any]] | dict[str, Any]
     """
+    # Security: Validate command structure
+    if not cmd or cmd[0] != "gh":
+        raise ValueError("Only GitHub CLI commands are allowed")
+    
+    allowed_commands = ["issue", "pr", "repo", "auth"]
+    if len(cmd) < 2 or cmd[1] not in allowed_commands:
+        raise ValueError(f"Unsupported gh command: {cmd[1] if len(cmd) > 1 else 'none'}")
+    
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return json.loads(result.stdout) if result.stdout.strip() else []
-    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
-        print(f"Error running gh command {' '.join(cmd)}: {e}", file=sys.stderr)
-        return []
-
-
-def run_gh_command_single(cmd: list[str]) -> dict[str, Any]:
-    """
-    Run GitHub CLI command and return JSON result as a single dictionary.
-
-    :param cmd: Command arguments to pass to the gh CLI
-    :type cmd: List[str]
-    :return: JSON response parsed as dictionary, empty dict on error
-    :rtype: Dict[str, Any]
-    :raises: Prints error to stderr and returns empty dict on subprocess or JSON errors
-    """
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-        return json.loads(result.stdout) if result.stdout.strip() else {}
-    except (subprocess.CalledProcessError, json.JSONDecodeError) as e:
-        print(f"Error running gh command {' '.join(cmd)}: {e}", file=sys.stderr)
-        return {}
+        data = json.loads(result.stdout) if result.stdout.strip() else ([] if not single else {})
+        return data
+    except subprocess.CalledProcessError as e:
+        error_msg = (
+            f"GitHub CLI error: {e.stderr or e}. Check if 'gh' is installed and authenticated."
+        )
+        print(error_msg, file=sys.stderr)
+        return {} if single else []
+    except json.JSONDecodeError as e:
+        print(f"Invalid JSON response from GitHub CLI: {e}", file=sys.stderr)
+        return {} if single else []
 
 
 def detect_repo_from_content(content: str) -> str:
@@ -61,13 +57,16 @@ def detect_repo_from_content(content: str) -> str:
     Extract repository name from GitHub links found in markdown content.
 
     Searches for existing GitHub issue or PR links to determine which repository
-    is being referenced. Falls back to DEFAULT_REPO if no links found.
+    is being referenced. Falls back to configured default repo if no links found.
 
     :param content: Markdown content to search for GitHub links
     :type content: str
     :return: Repository name in format "owner/repo"
     :rtype: str
     """
+    if not content or not isinstance(content, str):
+        return config.default_repo
+
     # Look for existing GitHub links to infer repo
     link_pattern = r"\[(?:Issue|PR) #\d+\]\(https://github\.com/([^/]+/[^/]+)/"
     match = re.search(link_pattern, content)
@@ -75,7 +74,7 @@ def detect_repo_from_content(content: str) -> str:
         return match.group(1)
 
     # Default fallback
-    return DEFAULT_REPO
+    return config.default_repo
 
 
 def get_date_range(period: str) -> str:
@@ -90,6 +89,9 @@ def get_date_range(period: str) -> str:
     :return: Date string in YYYY-MM-DD format
     :rtype: str
     """
+    if not period or not isinstance(period, str):
+        return datetime.now().strftime("%Y-%m-%d")
+
     today = datetime.now()
 
     # Check if period is a specific date (YYYY-MM-DD format)
@@ -123,9 +125,7 @@ def get_default_daily_note(date: str | None = None) -> Path:
     :return: Path object pointing to daily note file
     :rtype: Path
     """
-    if date is None:
-        date = datetime.now().strftime("%Y-%m-%d")
-    return NOTES_DIR / "daily" / f"{date}.md"
+    return config.get_daily_note_path(date)
 
 
 def fetch_issues_created(period: str = "today") -> list[dict[str, Any]]:
@@ -141,20 +141,20 @@ def fetch_issues_created(period: str = "today") -> list[dict[str, Any]]:
     :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
-    orgs = ["digitalgedacht", "nexiles"]
     all_issues = []
 
-    for org in orgs:
-        search_query = f"author:@me org:{org} created:{date_range}"
+    for org in config.github_orgs:
+        search_query = f"author:{config.github_user} org:{org} created:{date_range}"
         cmd = ["gh", "issue", "list", "--search", search_query, "--json", "number,title,url,state"]
         issues = run_gh_command(cmd)
         all_issues.extend(issues)
 
-    # Also check personal repos
-    search_query = f"author:@me user:seletz created:{date_range}"
-    cmd = ["gh", "issue", "list", "--search", search_query, "--json", "number,title,url,state"]
-    issues = run_gh_command(cmd)
-    all_issues.extend(issues)
+    # Also check personal repos if user is not @me
+    if config.github_user != "@me":
+        search_query = f"author:{config.github_user} user:{config.github_user} created:{date_range}"
+        cmd = ["gh", "issue", "list", "--search", search_query, "--json", "number,title,url,state"]
+        issues = run_gh_command(cmd)
+        all_issues.extend(issues)
 
     return all_issues
 
@@ -172,11 +172,11 @@ def fetch_prs_created(period: str = "today") -> list[dict[str, Any]]:
     :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
-    orgs = ["digitalgedacht", "nexiles"]
+    orgs = config.github_orgs
     all_prs = []
 
     for org in orgs:
-        search_query = f"author:@me assignee:@me org:{org} created:{date_range}"
+        search_query = f"author:{config.github_user} assignee:{config.github_user} org:{org} created:{date_range}"
         cmd = [
             "gh",
             "pr",
@@ -196,7 +196,7 @@ def fetch_issues_worked_on(period: str = "today") -> list[dict[str, Any]]:
     """
     Retrieve GitHub issues the user was involved with in specified period.
 
-    Uses GitHub's "involves:@me" search to find issues where the user
+    Uses GitHub's "involves:{config.github_user}" search to find issues where the user
     commented, was assigned, mentioned, or otherwise participated.
 
     :param period: Time period to search ("today", "this-week", or YYYY-MM-DD)
@@ -205,11 +205,11 @@ def fetch_issues_worked_on(period: str = "today") -> list[dict[str, Any]]:
     :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
-    orgs = ["digitalgedacht", "nexiles"]
+    orgs = config.github_orgs
     all_issues = []
 
     for org in orgs:
-        search_query = f"involves:@me org:{org} updated:{date_range}"
+        search_query = f"involves:{config.github_user} org:{org} updated:{date_range}"
         cmd = ["gh", "issue", "list", "--search", search_query, "--json", "number,title,url,state"]
         issues = run_gh_command(cmd)
         all_issues.extend(issues)
@@ -230,7 +230,7 @@ def fetch_issues_closed(period: str = "today") -> list[dict[str, Any]]:
     :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
-    orgs = ["digitalgedacht", "nexiles"]
+    orgs = config.github_orgs
     all_issues = []
 
     for org in orgs:
@@ -249,9 +249,13 @@ def fetch_issues_closed(period: str = "today") -> list[dict[str, Any]]:
         # Filter for issues created by or assigned to user
         filtered_issues = []
         for issue in issues:
-            is_author = issue.get("author", {}).get("login") == "seletz"
+            # For @me, use actual unix username
+            import getpass
+
+            username = getpass.getuser() if config.github_user == "@me" else config.github_user
+            is_author = issue.get("author", {}).get("login") == username
             is_assignee = any(
-                assignee.get("login") == "seletz" for assignee in issue.get("assignees", [])
+                assignee.get("login") == username for assignee in issue.get("assignees", [])
             )
             if is_author or is_assignee:
                 # Since these are from closed search, ensure state is marked as closed
@@ -276,11 +280,11 @@ def fetch_prs_merged(period: str = "today") -> list[dict[str, Any]]:
     :rtype: List[Dict[str, Any]]
     """
     date_range = get_date_range(period)
-    orgs = ["digitalgedacht", "nexiles"]
+    orgs = config.github_orgs
     all_prs = []
 
     for org in orgs:
-        search_query = f"author:@me assignee:@me org:{org} merged:{date_range}"
+        search_query = f"author:{config.github_user} assignee:{config.github_user} org:{org} merged:{date_range}"
         cmd = [
             "gh",
             "pr",
@@ -372,8 +376,9 @@ def add_checkmarks_to_closed_issues(content: str, repo: str, dry_run: bool = Fal
             return match.group(0)
 
         # Get issue state from GitHub
-        gh_data = run_gh_command_single(
-            ["gh", "issue", "view", number, "--repo", repo, "--json", "number,title,url,state"]
+        gh_data = run_gh_command(
+            ["gh", "issue", "view", number, "--repo", repo, "--json", "number,title,url,state"],
+            single=True,
         )
 
         if gh_data and gh_data.get("state", "").lower() == "closed":
@@ -415,7 +420,7 @@ def format_unformatted_github_refs(content: str, repo: str, dry_run: bool = Fals
             return match.group(0)
 
         # Get title and state from GitHub
-        gh_data = run_gh_command_single(
+        gh_data = run_gh_command(
             [
                 "gh",
                 ref_type.lower(),
@@ -425,7 +430,8 @@ def format_unformatted_github_refs(content: str, repo: str, dry_run: bool = Fals
                 repo,
                 "--json",
                 "number,title,url,state",
-            ]
+            ],
+            single=True,
         )
 
         if gh_data and "title" in gh_data:
