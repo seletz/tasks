@@ -35,12 +35,43 @@ def detect_repo_from_content(content: str) -> str:
     return "digitalgedacht/careassist-odoo"
 
 
+def add_checkmarks_to_closed_issues(content: str, repo: str, dry_run: bool = False) -> str:
+    """Add checkmarks to already-formatted GitHub issue links that are closed"""
+    # Pattern to find existing GitHub issue links without checkmarks
+    issue_pattern = r'\[Issue #(\d+)\]\((https://github\.com/[^/]+/[^/]+/issues/\d+)\) -- (?!✅)([^\n]+)'
+    
+    def update_issue_ref(match):
+        number = match.group(1)
+        url = match.group(2)
+        title = match.group(3)
+        
+        if dry_run:
+            print(f"Would check if Issue #{number} is closed and add ✅ if needed")
+            return match.group(0)
+        
+        # Get issue state from GitHub
+        gh_data = run_gh_command([
+            "gh", "issue", "view", number, 
+            "--repo", repo, "--json", "number,title,url,state"
+        ])
+        
+        if gh_data and gh_data.get("state", "").lower() == "closed":
+            return f"[Issue #{number}]({url}) -- ✅ {title}"
+        else:
+            return match.group(0)  # No change if not closed or error
+    
+    return re.sub(issue_pattern, update_issue_ref, content)
+
+
 def format_github_refs(content: str, repo: str = None, dry_run: bool = False) -> str:
-    """Format unformatted GitHub references in content"""
+    """Format unformatted GitHub references and add checkmarks to closed issues"""
     if repo is None:
         repo = detect_repo_from_content(content)
     
-    # Pattern to find unformatted references (not already in markdown links)
+    # First, add checkmarks to existing formatted issue links that are closed
+    content = add_checkmarks_to_closed_issues(content, repo, dry_run)
+    
+    # Then, format unformatted references (not already in markdown links)
     # Use negative lookbehind to avoid matching inside existing links
     pattern = r'(?<!\[)(?:Issue|PR) #(\d+)(?!\]\()'
     
@@ -52,16 +83,21 @@ def format_github_refs(content: str, repo: str = None, dry_run: bool = False) ->
             print(f"Would format: {match.group(0)} -> [{ref_type} #{number}](https://github.com/{repo}/{'issues' if ref_type == 'Issue' else 'pull'}/{number}) -- <title>")
             return match.group(0)
         
-        # Get title from GitHub
+        # Get title and state from GitHub
         endpoint = "issues" if ref_type == "Issue" else "pull"
         gh_data = run_gh_command([
             "gh", ref_type.lower(), "view", number, 
-            "--repo", repo, "--json", "number,title,url"
+            "--repo", repo, "--json", "number,title,url,state"
         ])
         
         if gh_data and "title" in gh_data:
             title = gh_data["title"]
             url = gh_data["url"]
+            
+            # Add checkmark if it's a closed issue
+            if ref_type == "Issue" and gh_data.get("state", "").lower() == "closed":
+                title = f"✅ {title}"
+                
             return f"[{ref_type} #{number}]({url}) -- {title}"
         else:
             print(f"Warning: Could not fetch data for {ref_type} #{number}", file=sys.stderr)

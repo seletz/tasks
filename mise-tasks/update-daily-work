@@ -38,6 +38,13 @@ def get_date_range(period: str) -> str:
     """Get date range string for GitHub search based on period"""
     today = datetime.now()
     
+    # Check if period is a specific date (YYYY-MM-DD format)
+    try:
+        datetime.strptime(period, "%Y-%m-%d")
+        return period  # Valid date format, use as-is
+    except ValueError:
+        pass  # Not a date, continue with period logic
+    
     if period == "today":
         return today.strftime("%Y-%m-%d")
     elif period == "this-week":
@@ -62,14 +69,14 @@ def fetch_issues_created(period: str = "today") -> List[Dict[str, Any]]:
     for org in orgs:
         search_query = f"author:@me org:{org} created:{date_range}"
         cmd = ["gh", "issue", "list", "--search", search_query, 
-               "--json", "number,title,url"]
+               "--json", "number,title,url,state"]
         issues = run_gh_command(cmd)
         all_issues.extend(issues)
     
     # Also check personal repos
     search_query = f"author:@me user:seletz created:{date_range}"
     cmd = ["gh", "issue", "list", "--search", search_query, 
-           "--json", "number,title,url"]
+           "--json", "number,title,url,state"]
     issues = run_gh_command(cmd)
     all_issues.extend(issues)
     
@@ -127,6 +134,8 @@ def fetch_issues_closed(period: str = "today") -> List[Dict[str, Any]]:
             is_assignee = any(assignee.get("login") == "seletz" 
                             for assignee in issue.get("assignees", []))
             if is_author or is_assignee:
+                # Since these are from closed search, ensure state is marked as closed
+                issue["state"] = "closed"
                 filtered_issues.append(issue)
         
         all_issues.extend(filtered_issues)
@@ -152,7 +161,10 @@ def fetch_prs_merged(period: str = "today") -> List[Dict[str, Any]]:
 
 def format_issue_ref(issue: Dict[str, Any]) -> str:
     """Format issue as markdown link"""
-    return f"[Issue #{issue['number']}]({issue['url']}) -- {issue['title']}"
+    title = issue['title']
+    if issue.get('state', '').lower() == 'closed':
+        title = f"✅ {title}"
+    return f"[Issue #{issue['number']}]({issue['url']}) -- {title}"
 
 
 def format_pr_ref(pr: Dict[str, Any]) -> str:
@@ -172,10 +184,11 @@ def format_pr_ref(pr: Dict[str, Any]) -> str:
     return result
 
 
-def get_default_daily_note() -> Path:
-    """Get path to today's daily note"""
-    today = datetime.now().strftime("%Y-%m-%d")
-    return NOTES_DIR / "daily" / f"{today}.md"
+def get_default_daily_note(date: str = None) -> Path:
+    """Get path to daily note for given date (defaults to today)"""
+    if date is None:
+        date = datetime.now().strftime("%Y-%m-%d")
+    return NOTES_DIR / "daily" / f"{date}.md"
 
 
 def update_daily_review_section(content: str, github_data: Dict[str, List]) -> str:
@@ -237,10 +250,8 @@ def update_daily_review_section(content: str, github_data: Dict[str, List]) -> s
         return content + "\n\n" + review_content
 
 
-def format_github_refs(content: str) -> str:
+def format_github_refs(content: str, daily_note_path: Path) -> str:
     """Format unformatted GitHub references using existing format-github-refs script"""
-    daily_note_path = get_default_daily_note()
-    
     try:
         # Write content to file temporarily for processing
         daily_note_path.write_text(content, encoding="utf-8")
@@ -264,29 +275,45 @@ def format_github_refs(content: str) -> str:
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Update daily journal with GitHub activity")
+    parser.add_argument("date", nargs="?", help="Specific date (YYYY-MM-DD) or daily note to update (defaults to today)")
     parser.add_argument("--period", choices=["today", "this-week", "this-month", "this-quarter"], 
-                       default="today", help="Time period to fetch activity for")
+                       default="today", help="Time period to fetch activity for (overridden by date argument)")
     parser.add_argument("--dry-run", action="store_true", help="Show what would be updated without modifying files")
     
     args = parser.parse_args()
     
-    daily_note_path = get_default_daily_note()
+    # Determine the date and period
+    if args.date:
+        # If date argument provided, use it for both the daily note and GitHub search
+        try:
+            datetime.strptime(args.date, "%Y-%m-%d")
+            target_date = args.date
+            period = args.date  # Use specific date for GitHub search
+        except ValueError:
+            print(f"Error: Date must be in YYYY-MM-DD format, got: {args.date}", file=sys.stderr)
+            sys.exit(1)
+    else:
+        # No date argument, use today and the specified period
+        target_date = datetime.now().strftime("%Y-%m-%d")
+        period = args.period
+    
+    daily_note_path = get_default_daily_note(target_date)
     
     if not daily_note_path.exists():
         print(f"Error: Daily note {daily_note_path} does not exist", file=sys.stderr)
         sys.exit(1)
     
     print(f"Updating daily note: {daily_note_path}")
-    print(f"Period: {args.period}")
+    print(f"Period: {period}")
     
     # Fetch GitHub activity
     print("Fetching GitHub activity...")
     github_data = {
-        "issues_created": fetch_issues_created(args.period),
-        "prs_created": fetch_prs_created(args.period),
-        "issues_worked_on": fetch_issues_worked_on(args.period),
-        "issues_closed": fetch_issues_closed(args.period),
-        "prs_merged": fetch_prs_merged(args.period)
+        "issues_created": fetch_issues_created(period),
+        "prs_created": fetch_prs_created(period),
+        "issues_worked_on": fetch_issues_worked_on(period),
+        "issues_closed": fetch_issues_closed(period),
+        "prs_merged": fetch_prs_merged(period)
     }
     
     # Read current content
@@ -302,7 +329,7 @@ def main() -> None:
     
     # Format GitHub references
     print("Formatting GitHub references...")
-    final_content = format_github_refs(updated_content)
+    final_content = format_github_refs(updated_content, daily_note_path)
     
     if args.dry_run:
         print("=== DRY RUN - Would update daily note with: ===")
