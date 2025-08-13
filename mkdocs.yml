@@ -1,10 +1,10 @@
 site_name: Tasks Documentation
 site_description: Personal tasks repository documentation
 site_author: seletz
-site_url: https://seletz.github.io/tasks-docs/
-repo_name: seletz/tasks-docs
-repo_url: https://github.com/seletz/tasks-docs
-edit_uri: edit/main/docs/
+site_url: https://seletz.github.io/tasks/
+repo_name: seletz/tasks
+repo_url: https://github.com/seletz/tasks
+edit_uri: edit/develop/docs/
 
 theme:
   name: material

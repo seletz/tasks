@@ -150,3 +150,4 @@ bind T display-popup \
 - **Workflows**: `ci.yml` runs comprehensive quality checks (lint, format, typecheck, test)
 - **Coverage reporting** with Codecov integration
 - **Branch protection**: Requires passing checks for `develop` and `main` branches
+- **ALWAYS** run code checks before committing.
