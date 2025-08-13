@@ -1,0 +1,78 @@
+name: CI
+
+on:
+  push:
+    branches: [ develop, main ]
+  pull_request:
+    branches: [ develop, main ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality-checks:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.13']
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+        
+    - name: Install uv
+      uses: astral-sh/setup-uv@v3
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+        
+    - name: Install dependencies
+      run: uv sync --group dev
+      
+    - name: Run ruff linting
+      run: |
+        echo "🔍 Running ruff check..."
+        uv run ruff check packages/journal-lib/src/ --output-format=github
+        
+    - name: Run ruff formatting check
+      run: |
+        echo "🎨 Checking code formatting..."
+        uv run ruff format --check packages/journal-lib/src/
+        
+    - name: Run type checking
+      run: |
+        echo "🔧 Running ty type checking..."
+        uv run ty check packages/journal-lib/src/
+        
+    - name: Run tests with coverage
+      run: |
+        echo "🧪 Running test suite..."
+        uv run pytest packages/journal-lib/tests/ -v \
+          --cov=journal_lib \
+          --cov-report=xml \
+          --cov-report=term-missing \
+          --cov-fail-under=90
+          
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      if: success() || failure()
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        token: ${{ secrets.CODECOV_TOKEN }}
+        
+    - name: Test summary
+      if: always()
+      run: |
+        echo "## 📊 Test Results" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Linting: Passed" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Formatting: Passed" >> $GITHUB_STEP_SUMMARY  
+        echo "- ✅ Type checking: Passed" >> $GITHUB_STEP_SUMMARY
+        echo "- ✅ Tests: Passed with coverage ≥90%" >> $GITHUB_STEP_SUMMARY

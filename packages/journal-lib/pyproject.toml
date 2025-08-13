@@ -9,5 +9,25 @@ description = "Personal journal automation library with GitHub integration"
 requires-python = ">=3.13"
 dependencies = []
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "pytest-mock>=3.12.0",
+]
+
 [tool.hatch.build.targets.wheel]
 packages = ["src/journal_lib"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--cov=journal_lib",
+    "--cov-report=term-missing",
+    "--cov-report=html",
+]

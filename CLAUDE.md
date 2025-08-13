@@ -74,6 +74,24 @@ uv sync
 uv sync --group dev
 ```
 
+### Development Quality Tasks
+```bash
+# Code linting
+mise run lint
+
+# Code formatting
+mise run format
+
+# Type checking with ty (Astral's fast type checker)
+mise run typecheck
+
+# Run tests with coverage
+mise run test
+
+# Run all quality checks (lint, format check, typecheck, test)
+mise run check
+```
+
 ### Existing Tasks
 - `format-github-refs`: Format unformatted GitHub references in markdown files
 - `ccusage`: Monitor usage with bunx ccusage blocks --live
@@ -102,9 +120,30 @@ bind T display-popup \
          "mise run"
 ```
 
-## Code Style
+## Code Quality & Style
 
+### Tooling Stack
+- **Linting**: `ruff` - Fast Python linter and code formatter
+- **Type Checking**: `ty` - Astral's extremely fast Python type checker (pre-alpha)
+- **Testing**: `pytest` with coverage reporting (≥90% required)
+- **Formatting**: `ruff format` - Consistent code style
+
+### Code Style Guidelines
 - Use RST-style docstrings for Python functions
 - Follow existing patterns when adding new scripts
 - Maintain separation between executable scripts (mise-tasks/) and libraries (src/)
-- Do not close issues, we use PRs and code reviews.
+- Modern type hints with `list[T]` and `dict[K, V]` instead of `typing.List[T]`
+- Do not close issues, we use PRs and code reviews
+
+### Quality Standards
+- All code must pass `mise run check` before committing
+- Tests require ≥90% coverage
+- Type checking with `ty` must pass (note: ty is pre-alpha, expect warnings)
+- Code must be formatted with `ruff format`
+- Focus on BEHAVIOUR in tests. Simple clear tests over 100% test coverage
+
+### CI/CD Pipeline
+- **GitHub Actions** automatically run quality checks on PRs and commits
+- **Workflows**: `ci.yml` runs comprehensive quality checks (lint, format, typecheck, test)
+- **Coverage reporting** with Codecov integration
+- **Branch protection**: Requires passing checks for `develop` and `main` branches
