@@ -16,4 +16,10 @@ journal-lib = { workspace = true }
 [dependency-groups]
 dev = [
     "ipython>=9.4.0",
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.26.0",
+    "mkdocs-gen-files>=0.5.0",
+    "mkdocs-literate-nav>=0.6.0",
+    "mkdocs-section-index>=0.3.9",
 ]

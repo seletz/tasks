@@ -21,3 +21,9 @@ description = "Format unformatted GitHub references in markdown files"
 run = [
 	"./mise-tasks/format-github-refs"
 ]
+
+[tasks.serve-docs]
+description = "Serve mkdocs documentation locally"
+run = [
+	"uv run mkdocs serve"
+]
