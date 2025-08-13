@@ -52,10 +52,14 @@ run = [
 
 [tasks.check]
 description = "Run all quality checks (lint, format check, typecheck, test)"
+depends = ["lint", "format-check", "typecheck", "test"]
 run = [
-	"mise run lint",
-	"uv run ruff format --check packages/journal-lib/src/",
-	"mise run typecheck", 
-	"mise run test",
 	"echo '🎉 All quality checks passed!'"
+]
+
+[tasks.format-check]
+description = "Check code formatting without making changes"
+run = [
+	"uv run ruff format --check packages/journal-lib/src/",
+	"echo '✅ Code formatting check passed'"
 ]

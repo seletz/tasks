@@ -43,7 +43,7 @@ jobs:
     - name: Run ruff formatting check
       run: |
         echo "🎨 Checking code formatting..."
-        uv run ruff format --check packages/journal-lib/src/
+        uv run mise run format-check
         
     - name: Run type checking
       run: |

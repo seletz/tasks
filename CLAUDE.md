@@ -82,13 +82,16 @@ mise run lint
 # Code formatting
 mise run format
 
+# Check code formatting without making changes  
+mise run format-check
+
 # Type checking with ty (Astral's fast type checker)
 mise run typecheck
 
 # Run tests with coverage
 mise run test
 
-# Run all quality checks (lint, format check, typecheck, test)
+# Run all quality checks (uses mise depends for parallel execution)
 mise run check
 ```
 
