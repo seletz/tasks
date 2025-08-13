@@ -285,9 +285,7 @@ def escape_markdown(text: str) -> str:
     Escape special markdown characters to prevent injection attacks.
 
     :param text: Text that may contain markdown special characters
-    :type text: str
     :return: Text with markdown special characters escaped
-    :rtype: str
     """
     if not isinstance(text, str):
         return str(text)
@@ -304,9 +302,7 @@ def extract_repo_from_url(url: str) -> str:
     Extract repository name from GitHub URL with validation.
 
     :param url: GitHub URL (issue or PR)
-    :type url: str
     :return: Repository name in "owner/repo" format
-    :rtype: str
     """
     import re
     from urllib.parse import urlparse
@@ -331,13 +327,11 @@ def format_issue_ref(issue: dict[str, Any]) -> str:
     """
     Format GitHub issue as markdown link with repository prefix and visual indicator for closed state.
 
-    Creates a markdown link in format: "[owner/repo#123](url) -- ✅ Title" for closed
-    issues, or "[owner/repo#123](url) -- Title" for open issues.
+    Creates a markdown link in format: ``[owner/repo#123](url) -- ✅ Title`` for closed
+    issues, or ``[owner/repo#123](url) -- Title`` for open issues.
 
     :param issue: Issue dictionary containing number, title, url, and state
-    :type issue: dict[str, Any]
     :return: Formatted markdown link string with repository prefix
-    :rtype: str
     """
     repo = extract_repo_from_url(issue["url"])
     title = escape_markdown(issue.get("title", ""))
@@ -354,9 +348,7 @@ def format_pr_ref(pr: dict[str, Any]) -> str:
     and optionally when it was merged.
 
     :param pr: PR dictionary containing number, title, url, createdAt, and optionally mergedAt
-    :type pr: dict[str, Any]
     :return: Formatted markdown link string with repository prefix and timestamps
-    :rtype: str
     """
     repo = extract_repo_from_url(pr["url"])
     created_at = datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))
@@ -510,9 +502,7 @@ def deduplicate_github_items(items: list[dict[str, Any]]) -> list[dict[str, Any]
     Remove duplicate GitHub items based on URL and sort by repository and number.
 
     :param items: List of GitHub items (issues or PRs)
-    :type items: List[Dict[str, Any]]
     :return: Deduplicated and sorted list of items
-    :rtype: List[Dict[str, Any]]
     """
     # Deduplicate by URL
     seen_urls = set()

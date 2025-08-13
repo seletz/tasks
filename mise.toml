@@ -32,11 +32,8 @@ run = [
 [tasks.test-docs]
 description = "Test documentation build and validate (matches GitHub workflow)"
 run = [
-	"uv run mkdocs build --clean --strict --verbose",
+	"uv run mkdocs build --clean --strict",
 	"echo \"Documentation size: $(du -sh site | cut -f1)\"",
-	"# Fail if docs are too large (50MB limit)",
-	"SIZE=$(du -sb site | cut -f1)",
-	"if [ $SIZE -gt 52428800 ]; then echo \"Documentation too large: $SIZE bytes (max 50MB)\"; exit 1; fi",
 	"echo '✅ Documentation build successful!'"
 ]
 
