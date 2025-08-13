@@ -122,7 +122,7 @@ class JournalConfig:
             date = datetime.now().strftime("%Y-%m-%d")
 
         # Security: Validate date format to prevent path traversal
-        if not re.match(r'^\d{4}-\d{2}-\d{2}$', date):
+        if not re.match(r"^\d{4}-\d{2}-\d{2}$", date):
             raise ValueError("Invalid date format. Expected YYYY-MM-DD")
 
         # Additional validation of date value
