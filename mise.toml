@@ -46,7 +46,7 @@ run = [
 [tasks.test]
 description = "Run tests with coverage"
 run = [
-	"uv run pytest packages/journal-lib/tests/ -v --cov=journal_lib --cov-report=term-missing --cov-fail-under=90",
+	"uv run pytest packages/journal-lib/tests/ -v --cov=journal_lib --cov-report=term-missing --cov-report=xml --cov-fail-under=90",
 	"echo '✅ Tests passed with coverage ≥90%'"
 ]
 

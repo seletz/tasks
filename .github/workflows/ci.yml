@@ -32,32 +32,16 @@ jobs:
         enable-cache: true
         cache-dependency-glob: "uv.lock"
         
+    - name: Install mise
+      uses: jdx/mise-action@v2
+        
     - name: Install dependencies
       run: uv sync --group dev
       
-    - name: Run ruff linting
+    - name: Run all quality checks
       run: |
-        echo "🔍 Running ruff check..."
-        uv run ruff check packages/journal-lib/src/ --output-format=github
-        
-    - name: Run ruff formatting check
-      run: |
-        echo "🎨 Checking code formatting..."
-        uv run mise run format-check
-        
-    - name: Run type checking
-      run: |
-        echo "🔧 Running ty type checking..."
-        uv run ty check packages/journal-lib/src/
-        
-    - name: Run tests with coverage
-      run: |
-        echo "🧪 Running test suite..."
-        uv run pytest packages/journal-lib/tests/ -v \
-          --cov=journal_lib \
-          --cov-report=xml \
-          --cov-report=term-missing \
-          --cov-fail-under=90
+        echo "🔍 Running comprehensive quality checks..."
+        mise run check
           
     - name: Upload coverage reports
       uses: codecov/codecov-action@v4
