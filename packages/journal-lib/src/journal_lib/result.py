@@ -21,12 +21,12 @@ Example usage:
         print(f"Error: {result.error}")
 """
 
-from typing import Generic, TypeVar
+from typing import TypeVar
 
 T = TypeVar("T")
 
 
-class Success(Generic[T]):
+class Success[T]:
     """Represents a successful operation with a value."""
 
     def __init__(self, value: T):

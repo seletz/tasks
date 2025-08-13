@@ -34,15 +34,6 @@ class JournalConfig:
     This class manages all configuration options through environment variables
     with sensible defaults, making the library portable across different
     environments and users.
-
-    :param notes_dir: Directory containing daily notes
-    :type notes_dir: Path
-    :param default_repo: Default GitHub repository in owner/repo format
-    :type default_repo: str
-    :param github_orgs: List of GitHub organizations to search
-    :type github_orgs: list[str]
-    :param github_user: GitHub username or '@me' for authenticated user
-    :type github_user: str
     """
 
     notes_dir: Path = field(
@@ -116,13 +107,13 @@ class JournalConfig:
         return ""
 
     def get_daily_note_path(self, date: str | None = None) -> Path:
-        """
-        Get file system path to daily note file for specified date.
+        """Get file system path to daily note file for specified date.
 
-        :param date: Date in YYYY-MM-DD format, defaults to today if None
-        :type date: Optional[str]
-        :return: Path object pointing to daily note file
-        :rtype: Path
+        Args:
+            date: Date in YYYY-MM-DD format, defaults to today if None
+
+        Returns:
+            Path object pointing to daily note file
         """
         import re
         from datetime import datetime

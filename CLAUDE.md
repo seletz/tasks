@@ -132,7 +132,7 @@ bind T display-popup \
 - **Formatting**: `ruff format` - Consistent code style
 
 ### Code Style Guidelines
-- Use RST-style docstrings for Python functions
+- Use Google-style docstrings for Python functions (Args:/Returns: format)
 - Follow existing patterns when adding new scripts
 - Maintain separation between executable scripts (mise-tasks/) and libraries (src/)
 - Modern type hints with `list[T]` and `dict[K, V]` instead of `typing.List[T]`

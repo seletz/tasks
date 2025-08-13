@@ -19,15 +19,14 @@ SECTION_PRS_MERGED = "**Heute gemergte PRs:**"
 
 
 def run_gh_command(cmd: list[str], single: bool = False) -> list[dict[str, Any]] | dict[str, Any]:
-    """
-    Run GitHub CLI command and return JSON result.
+    """Run GitHub CLI command and return JSON result.
 
-    :param cmd: Command arguments to pass to the gh CLI
-    :type cmd: list[str]
-    :param single: If True, return single dict; if False, return list
-    :type single: bool
-    :return: JSON response parsed as list or dictionary, empty result on error
-    :rtype: list[dict[str, Any]] | dict[str, Any]
+    Args:
+        cmd: Command arguments to pass to the gh CLI
+        single: If True, return single dict; if False, return list
+
+    Returns:
+        JSON response parsed as list or dictionary, empty result on error
     """
     # Security: Validate command structure
     if not cmd or cmd[0] != "gh":
@@ -53,16 +52,16 @@ def run_gh_command(cmd: list[str], single: bool = False) -> list[dict[str, Any]]
 
 
 def detect_repo_from_content(content: str) -> str:
-    """
-    Extract repository name from GitHub links found in markdown content.
+    """Extract repository name from GitHub links found in markdown content.
 
     Searches for existing GitHub issue or PR links to determine which repository
     is being referenced. Falls back to configured default repo if no links found.
 
-    :param content: Markdown content to search for GitHub links
-    :type content: str
-    :return: Repository name in format "owner/repo"
-    :rtype: str
+    Args:
+        content: Markdown content to search for GitHub links
+
+    Returns:
+        Repository name in format "owner/repo"
     """
     if not content or not isinstance(content, str):
         return config.default_repo
