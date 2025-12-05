@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+#
+# gh-activity - Fetch YOUR GitHub activity for daily/weekly/monthly reviews
+#
+# Usage:
+#   gh-activity today
+#   gh-activity yesterday
+#   gh-activity week           # Mon-today
+#   gh-activity month          # 1st of month to today
+#   gh-activity 2025-12-01 2025-12-05
+#
+# Output: Compact markdown, one line per item
+#
+set -euo pipefail
+
+USER="${GH_ACTIVITY_USER:-seletz}"
+REPOS="${GH_ACTIVITY_REPOS:-digitalgedacht/dg-k8s digitalgedacht/dg-odoo-erp-deployment digitalgedacht/careassist-odoo}"
+
+# Date handling
+today=$(date +%Y-%m-%d)
+case "${1:-today}" in
+    today)
+        FROM="$today"
+        TO="$today"
+        ;;
+    yesterday)
+        FROM=$(date -d "yesterday" +%Y-%m-%d 2>/dev/null || date -v-1d +%Y-%m-%d)
+        TO="$FROM"
+        ;;
+    week)
+        # Monday of current week
+        if date --version >/dev/null 2>&1; then
+            FROM=$(date -d "last monday" +%Y-%m-%d)
+        else
+            FROM=$(date -v-monday +%Y-%m-%d)
+        fi
+        TO="$today"
+        ;;
+    month)
+        FROM=$(date +%Y-%m-01)
+        TO="$today"
+        ;;
+    *)
+        FROM="${1}"
+        TO="${2:-$FROM}"
+        ;;
+esac
+
+echo "## GitHub Activity: $FROM to $TO"
+echo ""
+
+# Build repo filter for gh search
+repo_filter=""
+for repo in $REPOS; do
+    repo_filter="$repo_filter --repo $repo"
+done
+
+# Issues created
+echo "### Issues Created"
+echo
+gh search issues --author "$USER" --created "$FROM..$TO" $repo_filter \
+    --json createdAt,number,title,state,repository,url \
+    --jq '.[] | "- \(.createdAt) [\(.repository.nameWithOwner | split("/") | .[1])#\(.number)](\(.url)): \(.title) (\(.state | ascii_downcase))"' \
+    2>/dev/null || echo "- (none)"
+echo ""
+
+# PRs merged - use gh pr list per repo and filter by date with jq
+# gh search prs doesn't support date range on --merged
+echo "### PRs Merged"
+echo
+for repo in $REPOS; do
+    short_name=$(echo "$repo" | cut -d/ -f2)
+    gh pr list --repo "$repo" --author "$USER" --state merged --limit 100 \
+        --json number,title,url,mergedAt \
+    | jq -r --arg s "${FROM}T00:00:00" --arg e "${TO}T23:59:59" --arg repo "$short_name" '
+        .[]
+        | select(.mergedAt >= $s and .mergedAt <= $e)
+	| "- \(.mergedAt) [\($repo)#\(.number)](\(.url)): \(.title)"
+    ' 2>/dev/null
+done
+echo ""
+
+# Issues closed (authored by you)
+echo "### Issues Closed"
+echo
+gh search issues --author "$USER" --closed "$FROM..$TO" $repo_filter \
+    --json closedAt,number,title,state,repository,url \
+    --jq '.[] | "- \(.closedAt) [\(.repository.nameWithOwner | split("/") | .[1])#\(.number)](\(.url)): \(.title)"' \
+    2>/dev/null || echo "- (none)"
