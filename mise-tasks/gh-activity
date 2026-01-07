@@ -14,6 +14,8 @@
 set -euo pipefail
 
 USER="${GH_ACTIVITY_USER:-seletz}"
+# ???: gh repo list nexiles --no-archived --json nameWithOwner,updatedAt -q '(now - (365 * 24 * 60 * 60)) as $one_year_ago | map(select((.updatedAt | fromdateiso8601) > $one_year_ago)) | sort_by(.updatedAt) | reverse | .[].nameWithOwner'
+
 REPOS="${GH_ACTIVITY_REPOS:-digitalgedacht/dg-k8s digitalgedacht/dg-odoo-erp-deployment digitalgedacht/careassist-odoo}"
 
 # Date handling
@@ -60,7 +62,16 @@ echo "### Issues Created"
 echo
 gh search issues --author "$USER" --created "$FROM..$TO" $repo_filter \
     --json createdAt,number,title,state,repository,url \
-    --jq '.[] | "- \(.createdAt) [\(.repository.nameWithOwner | split("/") | .[1])#\(.number)](\(.url)): \(.title) (\(.state | ascii_downcase))"' \
+    --jq '.[] | "- \(.createdAt) \(.url): \(.title) (\(.state | ascii_downcase))"' \
+    2>/dev/null || echo "- (none)"
+echo ""
+
+# PRs created
+echo "### PRs Created"
+echo
+gh search prs --author "$USER" --created "$FROM..$TO" $repo_filter \
+    --json createdAt,number,title,state,repository,url \
+    --jq '.[] | "- \(.createdAt) \(.url): \(.title) (\(.state | ascii_downcase))"' \
     2>/dev/null || echo "- (none)"
 echo ""
 
@@ -75,7 +86,7 @@ for repo in $REPOS; do
     | jq -r --arg s "${FROM}T00:00:00" --arg e "${TO}T23:59:59" --arg repo "$short_name" '
         .[]
         | select(.mergedAt >= $s and .mergedAt <= $e)
-	| "- \(.mergedAt) [\($repo)#\(.number)](\(.url)): \(.title)"
+	| "- \(.mergedAt) \(.url): \(.title)"
     ' 2>/dev/null
 done
 echo ""
@@ -85,5 +96,5 @@ echo "### Issues Closed"
 echo
 gh search issues --author "$USER" --closed "$FROM..$TO" $repo_filter \
     --json closedAt,number,title,state,repository,url \
-    --jq '.[] | "- \(.closedAt) [\(.repository.nameWithOwner | split("/") | .[1])#\(.number)](\(.url)): \(.title)"' \
+    --jq '.[] | "- \(.closedAt) \(.url): \(.title)"' \
     2>/dev/null || echo "- (none)"
