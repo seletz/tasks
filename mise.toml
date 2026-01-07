@@ -15,17 +15,6 @@ node = "latest"
 _.python.venv = ".venv"
 JOURNAL_NOTES_DIR = "/Users/seletz/develop/notes"
 
-[tasks.ccusage]
-run = [
-	"bunx ccusage blocks --live"
-]
-
-[tasks.format-github-refs]
-description = "Format unformatted GitHub references in markdown files"
-run = [
-	"./mise-tasks/format-github-refs"
-]
-
 # Documentation tasks
 [tasks.serve-docs]
 description = "Serve mkdocs documentation locally"
