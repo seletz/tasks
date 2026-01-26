@@ -1,11 +1,10 @@
 #!/bin/bash
 #MISE description="Create a new Python script with UV inline metadata and shebang"
-#MISE usage="flag '--name' help='Script name to create'"
 
 set -euo pipefail
 
-# Get script name from argument or usage flag
-SCRIPT_NAME="${usage_name:-${1:-}}"
+# Get script name from argument
+SCRIPT_NAME="${1:-}"
 if [ -z "$SCRIPT_NAME" ]; then
     echo "Usage: $(basename $0) <script-name> or mise run new-python-script --name <script-name>" >&2
     echo "Example: mise $(basename $0) my-tool" >&2
