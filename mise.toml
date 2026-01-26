@@ -30,6 +30,13 @@ run = [
 	"echo '✅ Documentation build successful!'"
 ]
 
+# GitHub activity tasks
+[tasks.activity]
+description = "Show GitHub activity and copy to clipboard (options: today|yesterday|week|last-week|month|YYYY-MM-DD)"
+run = """
+	bash -c 'TIMERANGE="${1:-today}"; mise-tasks/gh-activity "$TIMERANGE" | tee >(pbcopy)' bash "$@"
+"""
+
 # Development quality tasks
 [tasks.lint]
 description = "Run linting checks on the codebase"

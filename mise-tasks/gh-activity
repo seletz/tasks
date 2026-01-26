@@ -1,14 +1,9 @@
 #!/usr/bin/env bash
+#MISE description="Fetch GitHub activity for daily/weekly/monthly reviews"
+#USAGE arg "[timerange]" help="Time range: today|yesterday|week|last-week|month|YYYY-MM-DD" default="today"
+#USAGE arg "[end_date]" help="Optional end date for custom date range (YYYY-MM-DD)"
 #
 # gh-activity - Fetch YOUR GitHub activity for daily/weekly/monthly reviews
-#
-# Usage:
-#   gh-activity today
-#   gh-activity yesterday
-#   gh-activity week           # Mon-today
-#   gh-activity month          # 1st of month to today
-#   gh-activity 2025-12-01 2025-12-05
-#
 # Output: Compact markdown, one line per item
 #
 set -euo pipefail
@@ -20,7 +15,8 @@ REPOS="${GH_ACTIVITY_REPOS:-digitalgedacht/dg-k8s digitalgedacht/dg-odoo-erp-dep
 
 # Date handling
 today=$(date +%Y-%m-%d)
-case "${1:-today}" in
+TIMERANGE="${usage_timerange:-today}"
+case "$TIMERANGE" in
     today)
         FROM="$today"
         TO="$today"
@@ -38,13 +34,26 @@ case "${1:-today}" in
         fi
         TO="$today"
         ;;
+    last-week)
+        # Monday to Sunday of last week
+        if date --version >/dev/null 2>&1; then
+            # GNU date (Linux)
+            FROM=$(date -d "last week monday" +%Y-%m-%d)
+            TO=$(date -d "last week sunday" +%Y-%m-%d)
+        else
+            # BSD date (macOS) - go to this week's Monday, then back 7 days for last Monday
+            # and back 1 day for last Sunday
+            FROM=$(date -v-monday -v-7d +%Y-%m-%d)
+            TO=$(date -v-monday -v-1d +%Y-%m-%d)
+        fi
+        ;;
     month)
         FROM=$(date +%Y-%m-01)
         TO="$today"
         ;;
     *)
-        FROM="${1}"
-        TO="${2:-$FROM}"
+        FROM="$TIMERANGE"
+        TO="${usage_end_date:-$FROM}"
         ;;
 esac
 
