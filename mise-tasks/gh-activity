@@ -11,7 +11,7 @@ set -euo pipefail
 USER="${GH_ACTIVITY_USER:-seletz}"
 # ???: gh repo list nexiles --no-archived --json nameWithOwner,updatedAt -q '(now - (365 * 24 * 60 * 60)) as $one_year_ago | map(select((.updatedAt | fromdateiso8601) > $one_year_ago)) | sort_by(.updatedAt) | reverse | .[].nameWithOwner'
 
-REPOS="${GH_ACTIVITY_REPOS:-digitalgedacht/dg-k8s digitalgedacht/dg-odoo-erp-deployment digitalgedacht/careassist-odoo}"
+REPOS="${GH_ACTIVITY_REPOS:-digitalgedacht/dg-k8s digitalgedacht/dg-odoo-erp-deployment digitalgedacht/Infrastruktur}"
 
 # Date handling
 today=$(date +%Y-%m-%d)
