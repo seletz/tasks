@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+#MISE description="Tile terminals left 1/3, editors right 2/3"
+/opt/homebrew/bin/hs -c "tileWindows()"
