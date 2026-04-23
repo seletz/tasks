@@ -13,6 +13,7 @@ USER="${GH_ACTIVITY_USER:-seletz}"
 
 REPOS="${GH_ACTIVITY_REPOS:-digitalgedacht/dg-k8s
 digitalgedacht/dg-odoo-erp-deployment digitalgedacht/Infrastruktur
+digitalgedacht/rfc
 digitalgedacht/sichtung digitalgedacht/sluice digitalgedacht/sluice-operator
 seletz/headscale-operator infradohq/headscale-operator seletz/odoo-work-cli}"
 
