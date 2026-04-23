@@ -1,5 +1,3 @@
-env_file = '.env'
-
 [settings]
 experimental = true
 legacy_version_file = false  # Don't auto-detect from .python-version files
@@ -12,6 +10,7 @@ yq = "latest"
 node = "latest"
 
 [env]
+_.file = '.env'
 _.python.venv = ".venv"
 JOURNAL_NOTES_DIR = "/Users/seletz/develop/notes"
 
