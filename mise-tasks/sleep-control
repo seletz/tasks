@@ -1,0 +1,17 @@
+#!/usr/bin/env bash
+#MISE description="Control Mac sleep behaviour via hammerspoon (on|off|toggle|blank|status)"
+#USAGE arg "<action>" help="Action: on, off, toggle, blank, status"
+
+set -euo pipefail
+
+action="${usage_action:-${1:-status}}"
+
+case "$action" in
+	on|off|toggle|blank|status)
+		open -g "hammerspoon://sleep?action=$action"
+		;;
+	*)
+		echo "Usage: mise run sleep-control <on|off|blank|status>" >&2
+		exit 1
+		;;
+esac

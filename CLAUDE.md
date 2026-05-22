@@ -113,6 +113,20 @@ mise run check
 - Personal notes directory: `/Users/seletz/develop/notes`
 - Daily notes stored in `daily/YYYY-MM-DD.md` format
 
+## macOS Automation
+
+**Prefer Hammerspoon over generic macOS UI automation** (AppleScript, `osascript`, `pmset` with sudo, shell tricks) for window management, keybindings, system-state control, and similar tasks.
+
+Integration pattern for mise tasks and keyboard shortcut apps (Raycast, Karabiner, BTT, etc.):
+
+1. Write a Lua function in `/Users/seletz/.dotfiles/hammerspoon/.hammerspoon/init.lua`.
+2. Expose it via a URL handler: `hs.urlevent.bind("<name>", function(_, params) ... end)`.
+3. Invoke from anywhere with `open -g "hammerspoon://<name>?key=value"` — mise tasks, hotkey apps, scripts.
+
+This keeps the heavy lifting in one place (Hammerspoon config), and makes the same action available from CLI, keyboard, and other tools.
+
+See the `hammerspoon` skill in `~/.claude/skills/hammerspoon/` for details and gotchas.
+
 ## tmux Integration
 
 The repository is integrated with tmux via a popup window:
