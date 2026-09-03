@@ -14,7 +14,12 @@ USER="${GH_ACTIVITY_USER:-seletz}"
 REPOS="${GH_ACTIVITY_REPOS:-digitalgedacht/dg-k8s
 digitalgedacht/dg-odoo-erp-deployment digitalgedacht/Infrastruktur
 digitalgedacht/rfc
-digitalgedacht/sichtung digitalgedacht/sluice digitalgedacht/sluice-operator
+digitalgedacht/archivar
+digitalgedacht/sichtung
+digitalgedacht/it-sicherheit-wiki
+digitalgedacht/isms
+digitalgedacht/briefwerk
+digitalgedacht/tresorwart
 seletz/headscale-operator infradohq/headscale-operator seletz/odoo-work-cli}"
 
 # Date handling
@@ -75,7 +80,7 @@ echo "### Issues Created"
 echo
 gh search issues --author "$USER" --created "$FROM..$TO" $repo_filter \
     --json createdAt,number,title,state,repository,url \
-    --jq '.[] | "- \(.createdAt) \(.url): \(.title) (\(.state | ascii_downcase))"' \
+    --jq '.[] | "- \(.createdAt) <\(.url)>: \(.title) (\(.state | ascii_downcase))"' \
     2>/dev/null || echo "- (none)"
 echo ""
 
@@ -84,7 +89,7 @@ echo "### PRs Created"
 echo
 gh search prs --author "$USER" --created "$FROM..$TO" $repo_filter \
     --json createdAt,number,title,state,repository,url \
-    --jq '.[] | "- \(.createdAt) \(.url): \(.title) (\(.state | ascii_downcase))"' \
+    --jq '.[] | "- \(.createdAt) <\(.url)>: \(.title) (\(.state | ascii_downcase))"' \
     2>/dev/null || echo "- (none)"
 echo ""
 
@@ -99,7 +104,7 @@ for repo in $REPOS; do
     | jq -r --arg s "${FROM}T00:00:00" --arg e "${TO}T23:59:59" --arg repo "$short_name" '
         .[]
         | select(.mergedAt >= $s and .mergedAt <= $e)
-	| "- \(.mergedAt) \(.url): \(.title)"
+	| "- \(.mergedAt) <\(.url)>: \(.title)"
     ' 2>/dev/null
 done
 echo ""
@@ -109,5 +114,5 @@ echo "### Issues Closed"
 echo
 gh search issues --author "$USER" --closed "$FROM..$TO" $repo_filter \
     --json closedAt,number,title,state,repository,url \
-    --jq '.[] | "- \(.closedAt) \(.url): \(.title)"' \
+    --jq '.[] | "- \(.closedAt) <\(.url)>: \(.title)"' \
     2>/dev/null || echo "- (none)"
